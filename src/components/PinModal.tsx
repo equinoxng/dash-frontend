@@ -7,14 +7,23 @@ interface PinModalProps {
   onConfirm: (pin: string) => void;
   onCancel: () => void;
   loading?: boolean;
+  error?: string;
 }
 
-export default function PinModal({ title = "Enter your PIN", subtitle = "Confirm this transaction with your 4-digit PIN", onConfirm, onCancel, loading = false }: PinModalProps) {
+export default function PinModal({ title = "Enter your PIN", subtitle = "Confirm this transaction with your 4-digit PIN", onConfirm, onCancel, loading = false, error: externalError }: PinModalProps) {
   const [pin, setPin] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => { inputs.current[0]?.focus(); }, []);
+
+  useEffect(() => {
+    if (externalError) {
+      setError(externalError);
+      setPin(["", "", "", ""]);
+      inputs.current[0]?.focus();
+    }
+  }, [externalError]);
 
   const handleChange = (i: number, val: string) => {
     const digit = val.replace(/\D/g, "").slice(-1);

@@ -2,17 +2,40 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { getBalance, formatNaira } from "@/lib/wallet";
-import { getActivity, type ActivityEntry } from "@/lib/activity";
+import { formatNaira, listRequests, type CashRequest } from "@/lib/requests";
+import { getSession } from "@/lib/session";
+
+const STATUS_LABEL: Record<CashRequest["status"], string> = {
+  PENDING: "Pending",
+  AWAITING_PAYMENT: "Pending",
+  PAYMENT_FAILED: "Failed",
+  PAYMENT_RECEIVED: "Pending",
+  RIDER_ASSIGNED: "In progress",
+  IN_PROGRESS: "In progress",
+  CONFIRMED: "In progress",
+  DISPUTED: "Disputed",
+  CANCELLED: "Cancelled",
+  COMPLETED: "Completed",
+};
+
+const statusColor = (s: CashRequest["status"]) => {
+  if (s === "COMPLETED") return "#16a34a";
+  if (s === "CANCELLED" || s === "PAYMENT_FAILED") return "#ef4444";
+  return "#64748b";
+};
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleString("en-NG", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 export default function Dashboard() {
-  const [balanceVisible, setBalanceVisible] = useState(true);
-  const [balance, setBalanceState] = useState(0);
-  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [activity, setActivity] = useState<CashRequest[]>([]);
 
   useEffect(() => {
-    setBalanceState(getBalance());
-    setActivity(getActivity().slice(0, 4));
+    const session = getSession();
+    if (!session) return;
+    listRequests(session.token)
+      .then((requests) => setActivity(requests.slice(0, 4)))
+      .catch(() => {});
   }, []);
 
   return (
@@ -43,52 +66,28 @@ export default function Dashboard() {
           <h1 className="text-2xl font-extrabold text-[#0f0f0f]">Ada Okafor 👋</h1>
         </div>
 
-        {/* Balance card */}
-        <div className="rounded-3xl px-6 pt-6 pb-5" style={{ background: "#1e1240" }}>
-          {/* Label + eye toggle */}
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>Wallet balance</span>
-            <button onClick={() => setBalanceVisible(v => !v)} className="transition-colors" style={{ color: "rgba(255,255,255,0.4)" }}>
-              {balanceVisible
-                ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              }
-            </button>
-          </div>
-
-          {/* Balance amount */}
-          <p className="text-white font-extrabold text-4xl tracking-tight mb-6">
-            {balanceVisible ? formatNaira(balance) : "₦ ••••••"}
-          </p>
-
-          {/* Divider */}
-          <div className="mb-5" style={{ height: "1px", background: "rgba(255,255,255,0.08)" }} />
-
-          {/* Action icon buttons */}
-          <div className="flex justify-around">
-            {[
-              { label: "Add funds", href: "/fund", highlight: balance <= 0,
-                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> },
-              { label: "Request", href: "/request", highlight: balance > 0,
-                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg> },
-              { label: "Send", href: "/send", highlight: false,
-                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg> },
-              { label: "Withdraw", href: "/withdraw", highlight: false,
-                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19,12 12,19 5,12"/></svg> },
-            ].map(({ label, href, highlight, icon }) => (
-              <Link key={label} href={href} className="flex flex-col items-center gap-2 group">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center transition-opacity hover:opacity-80"
-                  style={{
-                    background: highlight ? "white" : "rgba(255,255,255,0.1)",
-                    color: highlight ? "#1e1240" : "white",
-                  }}>
-                  {icon}
-                </div>
-                <span className="text-xs font-medium" style={{ color: highlight ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)" }}>
-                  {label}
-                </span>
-              </Link>
-            ))}
+        {/* Hero: move cash */}
+        <div className="rounded-3xl px-6 pt-6 pb-6" style={{ background: "#1e1240" }}>
+          <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>Move cash</span>
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <Link href="/send" className="rounded-2xl p-4 flex flex-col gap-4 hover:opacity-90 transition-opacity" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "white", color: "#1e1240" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">Send cash</p>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Deliver cash to anyone</p>
+              </div>
+            </Link>
+            <Link href="/request" className="rounded-2xl p-4 flex flex-col gap-4 hover:opacity-90 transition-opacity" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "white", color: "#1e1240" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">Request cash</p>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Get cash delivered to you</p>
+              </div>
+            </Link>
           </div>
         </div>
 
@@ -127,21 +126,24 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="space-y-2">
+            {activity.length === 0 && (
+              <p className="text-slate-400 text-sm px-1">No activity yet</p>
+            )}
             {activity.map((a) => (
-              <div key={a.id} className="flex items-center gap-3 rounded-2xl px-4 py-3 border" style={{ background: "white", borderColor: "#e0d9d0" }}>
+              <div key={a.requestId} className="flex items-center gap-3 rounded-2xl px-4 py-3 border" style={{ background: "white", borderColor: "#e0d9d0" }}>
                 <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "#ede8fb" }}>
-                  {a.type === "delivery"
+                  {a.type === "RECEIVE_CASH"
                     ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b3fc4" strokeWidth="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
-                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b3fc4" strokeWidth="1.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b3fc4" strokeWidth="1.8"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[#0f0f0f] text-sm font-semibold">{a.type === "delivery" ? "Cash delivery" : "Wallet funding"}</p>
-                  <p className="text-slate-400 text-xs">{a.date} · {a.id}</p>
+                  <p className="text-[#0f0f0f] text-sm font-semibold">{a.type === "RECEIVE_CASH" ? "Cash received" : "Cash sent"}</p>
+                  <p className="text-slate-400 text-xs">{formatDate(a.createdAt)} · {a.requestId}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[#0f0f0f] font-bold text-sm">{formatNaira(a.amount)}</p>
-                  <p className="text-xs font-medium" style={{ color: a.status === "Delivered" ? "#16a34a" : "#ef4444" }}>{a.status}</p>
+                  <p className="text-xs font-medium" style={{ color: statusColor(a.status) }}>{STATUS_LABEL[a.status]}</p>
                 </div>
               </div>
             ))}

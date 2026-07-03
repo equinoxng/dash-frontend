@@ -3,8 +3,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getBalance, addToBalance, formatNaira } from "@/lib/wallet";
-import { addActivity } from "@/lib/activity";
+import { formatNaira, createCashRequest } from "@/lib/requests";
+import { getSession } from "@/lib/session";
+import { toApiPhone } from "@/lib/phone";
+import { ApiError } from "@/lib/api";
 import PinModal from "@/components/PinModal";
 import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
@@ -66,6 +68,8 @@ export default function SendCash() {
   const [amountError, setAmountError] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [requestId, setRequestId] = useState("");
 
   const finalAmt = customAmt ? parseInt(customAmt.replace(/\D/g, "")) || selectedAmt : selectedAmt;
   const total = finalAmt + DELIVERY_FEE;
@@ -89,26 +93,39 @@ export default function SendCash() {
   };
 
   const handleAmountNext = () => {
-    const bal = getBalance();
     if (finalAmt <= 0) { setAmountError("Enter a valid amount."); return; }
-    if (total > bal) { setAmountError(`Insufficient balance. You need ${formatNaira(total)} but have ${formatNaira(bal)}.`); return; }
     setAmountError("");
     setStage("confirm");
   };
 
-  const handlePinConfirm = async (_pin: string) => {
+  const handlePinConfirm = async (pin: string) => {
+    const session = getSession();
+    if (!session) { router.push("/signin"); return; }
+
+    setPinError("");
     setPinLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setPinLoading(false);
-    setShowPin(false);
-    setStage("processing");
-    await new Promise(r => setTimeout(r, 2500));
-    addToBalance(-total);
-    addActivity({ amount: finalAmt, status: "Completed", type: "sent", meta: recipientName });
-    setStage("success");
+    try {
+      const request = await createCashRequest(session.token, {
+        type: "SEND_CASH",
+        pin,
+        amount: finalAmt,
+        recipientName,
+        recipientPhone: toApiPhone(recipientPhone),
+        deliveryAddress: `${addressLine}, ${addressCity}${addressLandmark ? ` (${addressLandmark})` : ""}`,
+      });
+      setPinLoading(false);
+      setShowPin(false);
+      setRequestId(request.requestId);
+      setStage("processing");
+      await new Promise(r => setTimeout(r, 2500));
+      setStage("success");
+    } catch (err) {
+      setPinLoading(false);
+      setPinError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+    }
   };
 
-  const handleConfirm = () => setShowPin(true);
+  const handleConfirm = () => { setPinError(""); setShowPin(true); };
 
   const inputClass = "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none transition bg-white text-[#0f0f0f] placeholder-slate-300";
   const borderStyle = { borderColor: "#e0d9d0" };
@@ -437,6 +454,10 @@ export default function SendCash() {
                 <span className="text-slate-400">Address</span>
                 <span className="text-[#0f0f0f] font-medium text-right max-w-[55%]">{addressLine}, {addressCity}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Reference</span>
+                <span className="text-[#0f0f0f] font-medium">{requestId}</span>
+              </div>
               <div className="border-t pt-2.5 flex justify-between" style={{ borderColor: "#e0d9d0" }}>
                 <span className="text-slate-400">Amount sent</span>
                 <span className="text-[#0f0f0f] font-bold">{formatNaira(finalAmt)}</span>
@@ -457,6 +478,7 @@ export default function SendCash() {
           title="Confirm send"
           subtitle={`Enter your PIN to send ${formatNaira(finalAmt)} to ${recipientName}`}
           loading={pinLoading}
+          error={pinError}
           onConfirm={handlePinConfirm}
           onCancel={() => setShowPin(false)}
         />

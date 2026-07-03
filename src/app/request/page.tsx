@@ -3,8 +3,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getBalance, addToBalance, formatNaira } from "@/lib/wallet";
-import { addActivity } from "@/lib/activity";
+import { formatNaira, createCashRequest, confirmDelivery } from "@/lib/requests";
+import { getSession } from "@/lib/session";
+import { ApiError } from "@/lib/api";
 import PinModal from "@/components/PinModal";
 import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
@@ -28,16 +29,16 @@ export default function RequestCash() {
   const [stage, setStage] = useState<Stage>("amount");
   const [selectedAmt, setSelectedAmt] = useState(20000);
   const [customAmt, setCustomAmt] = useState("");
-  const [balance, setBalanceState] = useState(0);
   const [error, setError] = useState("");
   const [selectedAddress, setSelectedAddress] = useState(0);
   const [showPin, setShowPin] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [requestId, setRequestId] = useState("");
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const [tick, setTick] = useState(0); // 0 → TOTAL_TICKS
   const [pin] = useState(genPin());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => { setBalanceState(getBalance()); }, []);
 
   const finalAmt = customAmt ? parseInt(customAmt.replace(/\D/g, "")) || selectedAmt : selectedAmt;
   const total = finalAmt + DELIVERY_FEE + SERVICE_FEE;
@@ -74,26 +75,48 @@ export default function RequestCash() {
 
   const handleContinue = () => {
     if (finalAmt <= 0) { setError("Enter a valid amount."); return; }
-    if (total > balance) { setError(`Insufficient balance. You need ${formatNaira(total)} but have ${formatNaira(balance)}.`); return; }
     setError("");
     setStage("confirm");
   };
 
-  const handlePinConfirm = async (_pin: string) => {
+  const handlePinConfirm = async (pin: string) => {
+    const session = getSession();
+    if (!session) { router.push("/signin"); return; }
+
+    setPinError("");
     setPinLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setPinLoading(false);
-    setShowPin(false);
-    setStage("searching");
-    setTimeout(() => setStage("onway"), 2200);
+    try {
+      const request = await createCashRequest(session.token, {
+        type: "RECEIVE_CASH",
+        pin,
+        amount: finalAmt,
+      });
+      setPinLoading(false);
+      setShowPin(false);
+      setRequestId(request.requestId);
+      setStage("searching");
+      setTimeout(() => setStage("onway"), 2200);
+    } catch (err) {
+      setPinLoading(false);
+      setPinError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+    }
   };
 
-  const handleConfirm = () => setShowPin(true);
+  const handleConfirm = () => { setPinError(""); setShowPin(true); };
 
-  const handleConfirmDelivery = () => {
-    addToBalance(-total);
-    addActivity({ amount: finalAmt, status: "Delivered", type: "delivery" });
-    setStage("delivered");
+  const handleConfirmDelivery = async () => {
+    const session = getSession();
+    if (!session) { router.push("/signin"); return; }
+
+    setConfirmLoading(true);
+    try {
+      await confirmDelivery(session.token, requestId);
+      setStage("delivered");
+    } catch {
+      setError("Could not confirm delivery. Please try again.");
+    } finally {
+      setConfirmLoading(false);
+    }
   };
 
   const handleDone = () => router.push("/dashboard");
@@ -283,10 +306,10 @@ export default function RequestCash() {
 
           {/* CTA button */}
           {isArrived ? (
-            <button onClick={handleConfirmDelivery}
-              className="w-full font-bold py-4 rounded-2xl text-[#111] hover:opacity-90 transition-opacity"
+            <button onClick={handleConfirmDelivery} disabled={confirmLoading}
+              className="w-full font-bold py-4 rounded-2xl text-[#111] hover:opacity-90 transition-opacity disabled:opacity-60"
               style={{ background: "#f0ede8" }}>
-              Confirm delivery
+              {confirmLoading ? "Confirming…" : "Confirm delivery"}
             </button>
           ) : (
             <div className="rounded-2xl py-3 px-4 text-center text-xs" style={{ color: "#555" }}>
@@ -329,8 +352,6 @@ export default function RequestCash() {
               </Link>
               <h1 className="text-xl font-extrabold text-[#0f0f0f]">Request cash</h1>
             </div>
-
-            <p className="text-slate-400 text-xs mb-3">Wallet balance: <span className="font-semibold text-[#0f0f0f]">{formatNaira(balance)}</span></p>
 
             <p className="text-slate-400 text-xs mb-3 uppercase tracking-widest">Select amount</p>
             <div className="grid grid-cols-3 gap-2 mb-4">
@@ -519,6 +540,7 @@ export default function RequestCash() {
           title="Confirm request"
           subtitle="Enter your 4-digit PIN to dispatch your rider"
           loading={pinLoading}
+          error={pinError}
           onConfirm={handlePinConfirm}
           onCancel={() => setShowPin(false)}
         />
