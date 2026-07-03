@@ -1,18 +1,18 @@
 "use client";
 import { useRef, useState } from "react";
-import { uploadIdentityDocument, deleteIdentityDocument, type UploadedFile } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 
 type Status = "idle" | "uploading" | "done" | "error";
 
-interface FileUploadFieldProps {
+interface FileUploadFieldProps<T> {
   label: string;
-  phoneNumber: string;
   accept?: string;
-  onUploaded?: (file: UploadedFile | null) => void;
+  upload: (file: File, onProgress: (percent: number) => void) => { promise: Promise<T>; abort: () => void };
+  onRemove?: () => void | Promise<void>;
+  onUploaded?: (result: T | null) => void;
 }
 
-export default function FileUploadField({ label, phoneNumber, accept = "image/*,.pdf", onUploaded }: FileUploadFieldProps) {
+export default function FileUploadField<T>({ label, accept = "image/*,.pdf", upload, onRemove, onUploaded }: FileUploadFieldProps<T>) {
   const [status, setStatus] = useState<Status>("idle");
   const [fileName, setFileName] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -38,13 +38,13 @@ export default function FileUploadField({ label, phoneNumber, accept = "image/*,
     setProgress(0);
     setError("");
 
-    const { promise, abort } = uploadIdentityDocument(phoneNumber, file, setProgress);
+    const { promise, abort } = upload(file, setProgress);
     abortRef.current = abort;
 
     promise
-      .then((uploaded) => {
+      .then((result) => {
         setStatus("done");
-        onUploaded?.(uploaded);
+        onUploaded?.(result);
       })
       .catch((err) => {
         setStatus("error");
@@ -56,7 +56,7 @@ export default function FileUploadField({ label, phoneNumber, accept = "image/*,
     if (status === "uploading") {
       abortRef.current?.();
     } else if (status === "done") {
-      deleteIdentityDocument(phoneNumber).catch(() => {});
+      Promise.resolve(onRemove?.()).catch(() => {});
     }
     onUploaded?.(null);
     reset();

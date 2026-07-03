@@ -1,18 +1,19 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { logout } from "@/lib/auth";
+import { logout, getProfile, type UserProfile } from "@/lib/auth";
 import { getSession, clearSession } from "@/lib/session";
 
 const MENU = [
   {
     section: "Account",
     items: [
-      { label: "Edit profile", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>, href: "#" },
+      { label: "Edit profile", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>, href: "/profile/edit" },
       { label: "Bank accounts", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>, href: "/settings/bank" },
       { label: "Change PIN", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>, href: "#" },
-      { label: "Change password", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, href: "#" },
+      { label: "Change password", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, href: "/profile/change-password" },
     ],
   },
   {
@@ -34,6 +35,14 @@ const MENU = [
 
 export default function ProfilePage() {
   const router = useRouter();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const session = getSession();
+    if (!session) { router.push("/signin"); return; }
+    getProfile(session.token).then(setProfile).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = async () => {
     const session = getSession();
@@ -47,6 +56,8 @@ export default function ProfilePage() {
     clearSession();
     router.push("/signin");
   };
+
+  const initials = profile ? `${profile.firstName[0] || ""}${profile.lastName[0] || ""}`.toUpperCase() : "";
 
   return (
     <div className="min-h-screen" style={{ background: "#f5f0eb" }}>
@@ -65,15 +76,24 @@ export default function ProfilePage() {
         {/* Avatar + name */}
         <div className="flex flex-col items-center text-center pt-2 pb-4">
           <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-extrabold mb-3" style={{ background: "#1e1240" }}>
-            AO
+            {initials || "—"}
           </div>
-          <h1 className="text-xl font-extrabold text-[#0f0f0f]">Ada Okafor</h1>
-          <p className="text-slate-400 text-sm mt-0.5">+234 801 234 5678</p>
-          <p className="text-slate-400 text-sm">ada@email.com</p>
-          <span className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: "#ede8fb", color: "#5b3fc4" }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-            Verified account
-          </span>
+          <h1 className="text-xl font-extrabold text-[#0f0f0f]">{profile?.fullName || "Loading…"}</h1>
+          <p className="text-slate-400 text-sm mt-0.5">{profile?.phoneNumber}</p>
+          <p className="text-slate-400 text-sm">{profile?.email}</p>
+          {profile && (profile.verified ? (
+            <span className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: "#ede8fb", color: "#5b3fc4" }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+              Verified account
+            </span>
+          ) : (
+            <Link href="/profile/verify-identity"
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold hover:underline"
+              style={{ background: "#fff7ed", color: "#c2410c" }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Verify your identity
+            </Link>
+          ))}
         </div>
 
         {/* Menu sections */}

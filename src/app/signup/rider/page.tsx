@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { registerRider, VEHICLE_TYPES } from "@/lib/auth";
+import { registerRider, VEHICLE_TYPES, uploadIdentityDocument, deleteIdentityDocument } from "@/lib/auth";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
 import FileUploadField from "@/components/FileUploadField";
@@ -135,7 +135,8 @@ export default function RiderSignup() {
               <Field label="NIN (National ID Number)" placeholder="12345678901" value={form.nin} onChange={(v) => update("nin", v)} />
               <FileUploadField
                 label="Government ID"
-                phoneNumber={toApiPhone(form.phone)}
+                upload={(file, onProgress) => uploadIdentityDocument(toApiPhone(form.phone), file, onProgress)}
+                onRemove={() => deleteIdentityDocument(toApiPhone(form.phone))}
               />
             </div>
           </>

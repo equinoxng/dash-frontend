@@ -12,6 +12,7 @@ function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "true";
+  const justReset = searchParams.get("reset") === "true";
 
   const [form, setForm] = useState({ phone: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -57,6 +58,14 @@ function SignInForm() {
           style={{ background: "#d1fae5", color: "#065f46", border: "1px solid #a7f3d0" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
           Account created! Sign in to get started.
+        </div>
+      )}
+
+      {justReset && (
+        <div className="w-full max-w-md mb-4 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium"
+          style={{ background: "#d1fae5", color: "#065f46", border: "1px solid #a7f3d0" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
+          Password reset! Sign in with your new password.
         </div>
       )}
 
