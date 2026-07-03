@@ -6,14 +6,32 @@ import { useRouter } from "next/navigation";
 import { registerRider, VEHICLE_TYPES } from "@/lib/auth";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
+import FileUploadField from "@/components/FileUploadField";
 
 const steps = ["Personal info", "Vehicle & docs", "Bank details"];
+
+function Field({
+  label, type = "text", placeholder, value, onChange,
+}: { label: string; type?: string; placeholder?: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
+      />
+    </div>
+  );
+}
 
 export default function RiderSignup() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    fullName: "", phone: "", email: "", password: "",
+    firstName: "", lastName: "", phone: "", email: "", password: "",
     vehicleType: "", plateNumber: "", nin: "",
     bankName: "", accountNumber: "", accountName: "",
   });
@@ -28,7 +46,8 @@ export default function RiderSignup() {
     try {
       await registerRider({
         phoneNumber: toApiPhone(form.phone),
-        fullName: form.fullName,
+        firstName: form.firstName,
+        lastName: form.lastName,
         email: form.email,
         password: form.password,
         vehicleType: VEHICLE_TYPES[form.vehicleType] || form.vehicleType,
@@ -44,19 +63,6 @@ export default function RiderSignup() {
       setLoading(false);
     }
   };
-
-  const Field = ({ label, name, type = "text", placeholder }: { label: string; name: string; type?: string; placeholder?: string }) => (
-    <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={form[name as keyof typeof form]}
-        onChange={(e) => update(name, e.target.value)}
-        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
-      />
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 py-12">
@@ -83,7 +89,10 @@ export default function RiderSignup() {
             <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Join as a rider</h1>
             <p className="text-slate-500 text-sm mb-6">Earn money delivering cash across the city.</p>
             <div className="space-y-4">
-              <Field label="Full name" name="fullName" placeholder="Chukwuemeka Eze" />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="First name" placeholder="Chukwuemeka" value={form.firstName} onChange={(v) => update("firstName", v)} />
+                <Field label="Last name" placeholder="Eze" value={form.lastName} onChange={(v) => update("lastName", v)} />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Phone number</label>
                 <div className="flex gap-2">
@@ -92,8 +101,8 @@ export default function RiderSignup() {
                     className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition" />
                 </div>
               </div>
-              <Field label="Email address" name="email" type="email" placeholder="chukwu@email.com" />
-              <Field label="Password" name="password" type="password" placeholder="At least 8 characters" />
+              <Field label="Email address" type="email" placeholder="chukwu@email.com" value={form.email} onChange={(v) => update("email", v)} />
+              <Field label="Password" type="password" placeholder="At least 8 characters" value={form.password} onChange={(v) => update("password", v)} />
             </div>
           </>
         )}
@@ -122,16 +131,12 @@ export default function RiderSignup() {
                   ))}
                 </div>
               </div>
-              <Field label="Plate number" name="plateNumber" placeholder="ABC 123 XY" />
-              <Field label="NIN (National ID Number)" name="nin" placeholder="12345678901" />
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Government ID</label>
-                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-slate-400 transition-colors bg-slate-50">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="mb-2 text-slate-400"><path d="M12 16V8m0 0l-3 3m3-3l3 3M4 20h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  <span className="text-xs text-slate-500">Upload NIN slip or passport</span>
-                  <input type="file" className="hidden" accept="image/*,.pdf" />
-                </label>
-              </div>
+              <Field label="Plate number" placeholder="ABC 123 XY" value={form.plateNumber} onChange={(v) => update("plateNumber", v)} />
+              <Field label="NIN (National ID Number)" placeholder="12345678901" value={form.nin} onChange={(v) => update("nin", v)} />
+              <FileUploadField
+                label="Government ID"
+                phoneNumber={toApiPhone(form.phone)}
+              />
             </div>
           </>
         )}
@@ -151,8 +156,8 @@ export default function RiderSignup() {
                   ))}
                 </select>
               </div>
-              <Field label="Account number" name="accountNumber" placeholder="0123456789" />
-              <Field label="Account name" name="accountName" placeholder="Auto-filled after verification" />
+              <Field label="Account number" placeholder="0123456789" value={form.accountNumber} onChange={(v) => update("accountNumber", v)} />
+              <Field label="Account name" placeholder="Auto-filled after verification" value={form.accountName} onChange={(v) => update("accountName", v)} />
 
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700">
                 Your application will be reviewed within 24 hours. We'll send a confirmation to your email once approved.

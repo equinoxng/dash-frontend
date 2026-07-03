@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api";
 export default function MerchantSignup() {
   const router = useRouter();
   const [form, setForm] = useState({
-    businessName: "", ownerName: "", phone: "", email: "", password: "",
+    businessName: "", ownerFirstName: "", ownerLastName: "", phone: "", email: "", password: "",
     address: "", businessType: "", cacNumber: "",
   });
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,8 @@ export default function MerchantSignup() {
       await registerMerchant({
         phoneNumber: toApiPhone(form.phone),
         businessName: form.businessName,
-        ownerName: form.ownerName,
+        ownerFirstName: form.ownerFirstName,
+        ownerLastName: form.ownerLastName,
         email: form.email,
         password: form.password,
         address: form.address,
@@ -77,10 +78,17 @@ export default function MerchantSignup() {
               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition" />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Owner / contact name</label>
-            <input type="text" placeholder="Emeka Nwosu" value={form.ownerName} onChange={(e) => update("ownerName", e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Owner first name</label>
+              <input type="text" placeholder="Emeka" value={form.ownerFirstName} onChange={(e) => update("ownerFirstName", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Owner last name</label>
+              <input type="text" placeholder="Nwosu" value={form.ownerLastName} onChange={(e) => update("ownerLastName", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition" />
+            </div>
           </div>
 
           <div>

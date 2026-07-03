@@ -4,12 +4,16 @@ import Image from "next/image";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-const WHATSAPP_LINK = "https://chat.whatsapp.com/equinoxng-community";
+const WHATSAPP_LINKS = {
+  rider: "https://chat.whatsapp.com/FKdxRwQU66iKwvwl8kVEya?mode=gi_t",
+  merchant: "https://chat.whatsapp.com/CcB4pU8SdewKfyzXM7vPVP?mode=gi_t",
+};
 
 function SuccessContent() {
   const params = useSearchParams();
   const type = params.get("type") || "rider"; // "rider" | "merchant"
   const isRider = type === "rider";
+  const whatsappLink = isRider ? WHATSAPP_LINKS.rider : WHATSAPP_LINKS.merchant;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12" style={{ background: "#f5f0eb" }}>
@@ -51,7 +55,7 @@ function SuccessContent() {
             You've been added to our {isRider ? "rider" : "merchant"} WhatsApp community where you'll get dispatch alerts,
             earnings updates, support, and announcements about the full {isRider ? "Rider" : "Merchant"} Dashboard — coming soon.
           </p>
-          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer"
+          <a href={whatsappLink} target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full font-bold py-3 rounded-xl text-white hover:opacity-90 transition-opacity"
             style={{ background: "#25D366" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
