@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api";
 export default function UserSignup() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ fullName: "", phone: "", email: "", password: "", pin: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "", password: "", pin: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +24,8 @@ export default function UserSignup() {
     try {
       await registerUser({
         phoneNumber: toApiPhone(form.phone),
-        fullName: form.fullName,
+        firstName: form.firstName,
+        lastName: form.lastName,
         email: form.email,
         password: form.password,
         pin: form.pin,
@@ -60,11 +61,19 @@ export default function UserSignup() {
             <p className="text-slate-500 text-sm mb-6">Get cash delivered in minutes.</p>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name</label>
-                <input type="text" placeholder="Ada Okafor" value={form.fullName}
-                  onChange={(e) => update("fullName", e.target.value)}
-                  className={inputClass} style={borderStyle} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">First name</label>
+                  <input type="text" placeholder="Ada" value={form.firstName}
+                    onChange={(e) => update("firstName", e.target.value)}
+                    className={inputClass} style={borderStyle} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Last name</label>
+                  <input type="text" placeholder="Okafor" value={form.lastName}
+                    onChange={(e) => update("lastName", e.target.value)}
+                    className={inputClass} style={borderStyle} />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Phone number</label>

@@ -24,7 +24,8 @@ export function verifyOtp(role: Role, phoneNumber: string, otp: string) {
 
 export type UserSignupPayload = {
   phoneNumber: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   pin: string;
