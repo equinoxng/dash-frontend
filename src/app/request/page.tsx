@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatNaira, createCashRequest, confirmDelivery } from "@/lib/requests";
 import { getSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
+import { listAddresses, type DeliveryAddress } from "@/lib/addresses";
 import PinModal from "@/components/PinModal";
 import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
@@ -35,10 +36,20 @@ export default function RequestCash() {
   const [pinLoading, setPinLoading] = useState(false);
   const [pinError, setPinError] = useState("");
   const [requestId, setRequestId] = useState("");
-  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [tick, setTick] = useState(0); // 0 → TOTAL_TICKS
   const [pin] = useState(genPin());
+  const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
+  const [confirmPinLoading, setConfirmPinLoading] = useState(false);
+  const [confirmPinError, setConfirmPinError] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const session = getSession();
+    if (!session) return;
+    listAddresses(session.token).then(setAddresses).catch(() => {});
+  }, []);
 
   const finalAmt = customAmt ? parseInt(customAmt.replace(/\D/g, "")) || selectedAmt : selectedAmt;
   const total = finalAmt + DELIVERY_FEE + SERVICE_FEE;
@@ -90,10 +101,12 @@ export default function RequestCash() {
         type: "RECEIVE_CASH",
         pin,
         amount: finalAmt,
+        deliveryAddressId: addresses[selectedAddress]?.id,
       });
       setPinLoading(false);
       setShowPin(false);
       setRequestId(request.requestId);
+      setDeliveryAddress(request.deliveryAddress ?? "");
       setStage("searching");
       setTimeout(() => setStage("onway"), 2200);
     } catch (err) {
@@ -104,18 +117,20 @@ export default function RequestCash() {
 
   const handleConfirm = () => { setPinError(""); setShowPin(true); };
 
-  const handleConfirmDelivery = async () => {
+  const handleConfirmDeliveryPin = async (deliveryPin: string) => {
     const session = getSession();
     if (!session) { router.push("/signin"); return; }
 
-    setConfirmLoading(true);
+    setConfirmPinError("");
+    setConfirmPinLoading(true);
     try {
-      await confirmDelivery(session.token, requestId);
+      await confirmDelivery(session.token, requestId, deliveryPin);
+      setConfirmPinLoading(false);
+      setShowConfirmPin(false);
       setStage("delivered");
-    } catch {
-      setError("Could not confirm delivery. Please try again.");
-    } finally {
-      setConfirmLoading(false);
+    } catch (err) {
+      setConfirmPinLoading(false);
+      setConfirmPinError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     }
   };
 
@@ -306,10 +321,10 @@ export default function RequestCash() {
 
           {/* CTA button */}
           {isArrived ? (
-            <button onClick={handleConfirmDelivery} disabled={confirmLoading}
-              className="w-full font-bold py-4 rounded-2xl text-[#111] hover:opacity-90 transition-opacity disabled:opacity-60"
+            <button onClick={() => { setConfirmPinError(""); setShowConfirmPin(true); }}
+              className="w-full font-bold py-4 rounded-2xl text-[#111] hover:opacity-90 transition-opacity"
               style={{ background: "#f0ede8" }}>
-              {confirmLoading ? "Confirming…" : "Confirm delivery"}
+              Confirm delivery
             </button>
           ) : (
             <div className="rounded-2xl py-3 px-4 text-center text-xs" style={{ color: "#555" }}>
@@ -323,10 +338,21 @@ export default function RequestCash() {
 
           {/* Address */}
           <p className="text-center text-xs mt-4" style={{ color: "#444" }}>
-            {["14 Adeola Odeku St, Victoria Island", "1 Idejo St, Lagos Island", "Balogun Market, Stall 22, Lagos"][selectedAddress]}
+            {deliveryAddress}
           </p>
         </div>
         </div>{/* /max-w-md card */}
+
+        {showConfirmPin && (
+          <PinModal
+            title="Confirm delivery"
+            subtitle="Enter your PIN to release escrow and complete this delivery"
+            loading={confirmPinLoading}
+            error={confirmPinError}
+            onConfirm={handleConfirmDeliveryPin}
+            onCancel={() => setShowConfirmPin(false)}
+          />
+        )}
       </div>
     );
   }
@@ -399,13 +425,7 @@ export default function RequestCash() {
         )}
 
         {/* ── CONFIRM ── */}
-        {stage === "confirm" && (() => {
-          const ADDRESSES = [
-            { label: "Home", sub: "14 Adeola Odeku St, Victoria Island" },
-            { label: "Work", sub: "1 Idejo St, Lagos Island" },
-            { label: "Market", sub: "Balogun Market, Stall 22, Lagos" },
-          ];
-          return (
+        {stage === "confirm" && (
           <>
             <div className="flex items-center gap-3 mb-1">
               <button onClick={() => setStage("amount")} className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: "#f5f0eb" }}>
@@ -423,35 +443,39 @@ export default function RequestCash() {
               <div className="h-1 flex-1 rounded-full" style={{ background: "#1e1240" }} />
             </div>
 
-            {/* Deliver to */}
-            <p className="text-sm font-bold text-[#0f0f0f] mb-3">Deliver to</p>
-            <div className="space-y-2 mb-4">
-              {ADDRESSES.map((addr, i) => (
-                <button key={addr.label} onClick={() => setSelectedAddress(i)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border text-left transition-all"
-                  style={{
-                    background: selectedAddress === i ? "#1e1240" : "#f5f0eb",
-                    borderColor: selectedAddress === i ? "#1e1240" : "#e0d9d0",
-                  }}>
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: selectedAddress === i ? "rgba(255,255,255,0.12)" : "#e0d9d0" }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke={selectedAddress === i ? "white" : "#64748b"} strokeWidth="2" strokeLinecap="round">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm" style={{ color: selectedAddress === i ? "white" : "#0f0f0f" }}>{addr.label}</p>
-                    <p className="text-xs truncate" style={{ color: selectedAddress === i ? "rgba(255,255,255,0.6)" : "#94a3b8" }}>{addr.sub}</p>
-                  </div>
-                  {selectedAddress === i && (
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.15)" }}>
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
+            {/* Deliver to — only shown when the user has saved addresses; otherwise the backend falls back to their profile address */}
+            {addresses.length > 0 && (
+              <>
+                <p className="text-sm font-bold text-[#0f0f0f] mb-3">Deliver to</p>
+                <div className="space-y-2 mb-4">
+                  {addresses.map((addr, i) => (
+                    <button key={addr.id} onClick={() => setSelectedAddress(i)}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border text-left transition-all"
+                      style={{
+                        background: selectedAddress === i ? "#1e1240" : "#f5f0eb",
+                        borderColor: selectedAddress === i ? "#1e1240" : "#e0d9d0",
+                      }}>
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                        style={{ background: selectedAddress === i ? "rgba(255,255,255,0.12)" : "#e0d9d0" }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                          stroke={selectedAddress === i ? "white" : "#64748b"} strokeWidth="2" strokeLinecap="round">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm" style={{ color: selectedAddress === i ? "white" : "#0f0f0f" }}>{addr.label}</p>
+                        <p className="text-xs truncate" style={{ color: selectedAddress === i ? "rgba(255,255,255,0.6)" : "#94a3b8" }}>{addr.fullAddress}</p>
+                      </div>
+                      {selectedAddress === i && (
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.15)" }}>
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* ETA */}
             <div className="flex items-center gap-2 px-4 py-3 rounded-2xl mb-4" style={{ background: "#f5f0eb" }}>
@@ -485,8 +509,7 @@ export default function RequestCash() {
               Confirm & dispatch vendor
             </button>
           </>
-          );
-        })()}
+        )}
 
         {/* ── SEARCHING ── */}
         {stage === "searching" && (

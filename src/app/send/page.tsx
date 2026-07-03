@@ -1,12 +1,14 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatNaira, createCashRequest } from "@/lib/requests";
 import { getSession } from "@/lib/session";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
+import { listContacts, type Contact } from "@/lib/contacts";
+import { getWallet } from "@/lib/wallet";
 import PinModal from "@/components/PinModal";
 import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
@@ -15,11 +17,7 @@ type Stage = "recipient" | "address" | "amount" | "confirm" | "processing" | "su
 const DELIVERY_FEE = 500;
 const AMOUNTS = [5000, 10000, 20000, 50000, 100000, 200000];
 
-const SAVED_CONTACTS = [
-  { name: "Emeka Obi", phone: "0812 345 6789", initials: "EO" },
-  { name: "Fatima Bello", phone: "0703 456 7890", initials: "FB" },
-  { name: "Tunde Adeyemi", phone: "0901 234 5678", initials: "TA" },
-];
+const initialsFor = (name: string) => name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
 const STEP_LABELS = ["Recipient", "Address", "Amount", "Confirm"];
 
@@ -70,6 +68,15 @@ export default function SendCash() {
   const [pinLoading, setPinLoading] = useState(false);
   const [pinError, setPinError] = useState("");
   const [requestId, setRequestId] = useState("");
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [balance, setBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    const session = getSession();
+    if (!session) return;
+    listContacts(session.token).then(setContacts).catch(() => {});
+    getWallet(session.token).then((w) => setBalance(w.balance)).catch(() => {});
+  }, []);
 
   const finalAmt = customAmt ? parseInt(customAmt.replace(/\D/g, "")) || selectedAmt : selectedAmt;
   const total = finalAmt + DELIVERY_FEE;
@@ -94,6 +101,10 @@ export default function SendCash() {
 
   const handleAmountNext = () => {
     if (finalAmt <= 0) { setAmountError("Enter a valid amount."); return; }
+    if (balance !== null && total > balance) {
+      setAmountError(`Insufficient balance. You need ${formatNaira(total)} but have ${formatNaira(balance)}.`);
+      return;
+    }
     setAmountError("");
     setStage("confirm");
   };
@@ -149,20 +160,20 @@ export default function SendCash() {
               onBack={() => router.push("/dashboard")} />
 
             {/* Saved contacts */}
-            {SAVED_CONTACTS.length > 0 && (
+            {contacts.length > 0 && (
               <div className="mb-5">
                 <p className="text-slate-400 text-xs uppercase tracking-widest mb-2">Recent contacts</p>
                 <div className="flex gap-3 overflow-x-auto pb-1">
-                  {SAVED_CONTACTS.map((c) => (
-                    <button key={c.phone} onClick={() => { setRecipientName(c.name); setRecipientPhone(c.phone.replace(/\s/g, "")); setRecipientError(""); }}
+                  {contacts.map((c) => (
+                    <button key={c.phoneNumber} onClick={() => { setRecipientName(c.name); setRecipientPhone(c.phoneNumber.replace(/^\+234/, "0")); setRecipientError(""); }}
                       className="flex flex-col items-center gap-1.5 shrink-0">
                       <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 transition-all"
                         style={{
-                          background: recipientPhone === c.phone.replace(/\s/g, "") ? "#1e1240" : "#ede8fb",
-                          color: recipientPhone === c.phone.replace(/\s/g, "") ? "white" : "#5b3fc4",
-                          borderColor: recipientPhone === c.phone.replace(/\s/g, "") ? "#1e1240" : "transparent",
+                          background: recipientPhone === c.phoneNumber.replace(/^\+234/, "0") ? "#1e1240" : "#ede8fb",
+                          color: recipientPhone === c.phoneNumber.replace(/^\+234/, "0") ? "white" : "#5b3fc4",
+                          borderColor: recipientPhone === c.phoneNumber.replace(/^\+234/, "0") ? "#1e1240" : "transparent",
                         }}>
-                        {c.initials}
+                        {initialsFor(c.name)}
                       </div>
                       <span className="text-xs text-slate-500 font-medium">{c.name.split(" ")[0]}</span>
                     </button>

@@ -208,6 +208,34 @@ export function updateProfile(token: string, payload: UpdateProfilePayload) {
   });
 }
 
+export function changePin(token: string, currentPin: string, newPin: string) {
+  return apiFetch("/api/users/pin", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPin, newPin }),
+  });
+}
+
+export type NotificationPreferences = {
+  deliveryUpdates: boolean;
+  promotions: boolean;
+  securityAlerts: boolean;
+};
+
+export function getNotificationPreferences(token: string) {
+  return apiFetch<NotificationPreferences>("/api/users/notifications", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function updateNotificationPreferences(token: string, preferences: NotificationPreferences) {
+  return apiFetch<NotificationPreferences>("/api/users/notifications", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(preferences),
+  });
+}
+
 export const IDENTIFICATION_TYPES: Record<string, string> = {
   "National ID (NIN)": "NIN",
   "Voter's Card": "VOTERS_CARD",

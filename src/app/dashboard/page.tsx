@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { formatNaira, listRequests, type CashRequest } from "@/lib/requests";
 import { getSession } from "@/lib/session";
+import { getWallet, type Wallet } from "@/lib/wallet";
 
 const STATUS_LABEL: Record<CashRequest["status"], string> = {
   PENDING: "Pending",
@@ -29,12 +30,19 @@ const formatDate = (iso: string) =>
 
 export default function Dashboard() {
   const [activity, setActivity] = useState<CashRequest[]>([]);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [balanceVisible, setBalanceVisible] = useState(true);
+  const [inProgressCount, setInProgressCount] = useState(0);
 
   useEffect(() => {
     const session = getSession();
     if (!session) return;
+    getWallet(session.token).then(setWallet).catch(() => {});
     listRequests(session.token)
-      .then((requests) => setActivity(requests.slice(0, 4)))
+      .then((requests) => {
+        setActivity(requests.slice(0, 4));
+        setInProgressCount(requests.filter((r) => r.status === "RIDER_ASSIGNED" || r.status === "IN_PROGRESS").length);
+      })
       .catch(() => {});
   }, []);
 
@@ -66,28 +74,57 @@ export default function Dashboard() {
           <h1 className="text-2xl font-extrabold text-[#0f0f0f]">Ada Okafor 👋</h1>
         </div>
 
-        {/* Hero: move cash */}
-        <div className="rounded-3xl px-6 pt-6 pb-6" style={{ background: "#1e1240" }}>
-          <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>Move cash</span>
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <Link href="/send" className="rounded-2xl p-4 flex flex-col gap-4 hover:opacity-90 transition-opacity" style={{ background: "rgba(255,255,255,0.08)" }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "white", color: "#1e1240" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
-              </div>
-              <div>
-                <p className="text-white font-bold text-sm">Send cash</p>
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Deliver cash to anyone</p>
-              </div>
+        {/* Balance card */}
+        <div className="rounded-3xl px-6 pt-6 pb-5" style={{ background: "#1e1240" }}>
+          {/* Label + eye toggle */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>Wallet balance</span>
+            <button onClick={() => setBalanceVisible(v => !v)} className="transition-colors" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {balanceVisible
+                ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              }
+            </button>
+          </div>
+
+          {/* Balance amount */}
+          <p className="text-white font-extrabold text-4xl tracking-tight mb-1">
+            {balanceVisible ? formatNaira(wallet?.balance ?? 0) : "₦ ••••••"}
+          </p>
+
+          {/* Escrow pill */}
+          {wallet && wallet.escrowBalance > 0 && (
+            <Link href="/deliveries" className="inline-flex items-center gap-1.5 text-xs font-medium mb-4 hover:underline" style={{ color: "rgba(255,255,255,0.6)" }}>
+              {formatNaira(wallet.escrowBalance)} in escrow · {inProgressCount} in progress
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </Link>
-            <Link href="/request" className="rounded-2xl p-4 flex flex-col gap-4 hover:opacity-90 transition-opacity" style={{ background: "rgba(255,255,255,0.08)" }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "white", color: "#1e1240" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
-              </div>
-              <div>
-                <p className="text-white font-bold text-sm">Request cash</p>
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Get cash delivered to you</p>
-              </div>
-            </Link>
+          )}
+
+          {/* Divider */}
+          <div className="mb-5" style={{ height: "1px", background: "rgba(255,255,255,0.08)" }} />
+
+          {/* Action icon buttons */}
+          <div className="flex justify-around">
+            {[
+              { label: "Add funds", href: "/fund",
+                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> },
+              { label: "Request", href: "/request",
+                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg> },
+              { label: "Send", href: "/send",
+                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg> },
+              { label: "Withdraw", href: "/withdraw",
+                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19,12 12,19 5,12"/></svg> },
+            ].map(({ label, href, icon }) => (
+              <Link key={label} href={href} className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center transition-opacity hover:opacity-80"
+                  style={{ background: "rgba(255,255,255,0.1)", color: "white" }}>
+                  {icon}
+                </div>
+                <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  {label}
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
 

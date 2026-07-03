@@ -40,6 +40,7 @@ export type CreateCashRequestPayload = {
   recipientName?: string;
   recipientPhone?: string;
   deliveryAddress?: string;
+  deliveryAddressId?: string;
 };
 
 export function createCashRequest(token: string, payload: CreateCashRequestPayload) {
@@ -50,10 +51,11 @@ export function createCashRequest(token: string, payload: CreateCashRequestPaylo
   });
 }
 
-export function confirmDelivery(token: string, requestId: string) {
+export function confirmDelivery(token: string, requestId: string, pin: string) {
   return apiFetch<CashRequest>(`/api/requests/${requestId}/confirm`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ pin }),
   });
 }
 
