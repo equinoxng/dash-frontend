@@ -3,8 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { requestOtp } from "@/lib/auth";
-import { savePendingSignup } from "@/lib/pendingSignup";
+import { registerUser } from "@/lib/auth";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
 
@@ -23,14 +22,14 @@ export default function UserSignup() {
     setLoading(true);
     setError("");
     try {
-      const phoneNumber = toApiPhone(form.phone);
-      await requestOtp("user", phoneNumber);
-      savePendingSignup({
-        role: "user",
-        phoneNumber,
-        payload: { fullName: form.fullName, email: form.email, password: form.password, pin: form.pin },
+      await registerUser({
+        phoneNumber: toApiPhone(form.phone),
+        fullName: form.fullName,
+        email: form.email,
+        password: form.password,
+        pin: form.pin,
       });
-      router.push(`/verify?role=user&phone=${encodeURIComponent("+234 " + form.phone)}`);
+      router.push("/signin?registered=true");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
       setLoading(false);

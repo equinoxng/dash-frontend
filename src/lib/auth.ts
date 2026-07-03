@@ -86,6 +86,7 @@ export type LoginResponse = {
   accountType: AccountType;
   accountId: string;
   fullName: string;
+  phoneVerified: boolean;
 };
 
 export function login(phoneNumber: string, password: string) {

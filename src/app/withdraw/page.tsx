@@ -7,6 +7,7 @@ import { getBalance, addToBalance, formatNaira } from "@/lib/wallet";
 import { addActivity } from "@/lib/activity";
 import { getBankAccounts, type BankAccount } from "@/lib/bank";
 import PinModal from "@/components/PinModal";
+import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
 type Stage = "account" | "amount" | "confirm" | "success";
 const AMOUNTS = [5000, 10000, 20000, 50000, 100000];
@@ -68,6 +69,10 @@ export default function Withdraw() {
       <Link href="/dashboard" className="mb-8">
         <Image src="/logo.png" alt="Dash by Equinox" width={100} height={38} priority />
       </Link>
+
+      <div className="w-full max-w-md">
+        <VerifyPhoneBanner />
+      </div>
 
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border p-8" style={borderStyle}>
 

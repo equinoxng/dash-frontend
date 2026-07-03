@@ -3,14 +3,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { requestOtp, verifyOtp, registerUser, registerRider, registerMerchant } from "@/lib/auth";
-import { getPendingSignup, clearPendingSignup } from "@/lib/pendingSignup";
+import { requestOtp, verifyOtp, type Role, type AccountType } from "@/lib/auth";
+import { getSession, markPhoneVerified } from "@/lib/session";
 import { ApiError } from "@/lib/api";
+
+const ROLE_BY_ACCOUNT_TYPE: Record<AccountType, Role> = {
+  USER: "user",
+  RIDER: "rider",
+  MERCHANT: "merchant",
+};
 
 function VerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const phone = searchParams.get("phone") || "080X XXX XXXX";
+  const from = searchParams.get("from") || "/dashboard";
+  const session = getSession();
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
@@ -20,7 +27,15 @@ function VerifyForm() {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
+    if (!session) {
+      router.push("/signin");
+      return;
+    }
+    requestOtp(ROLE_BY_ACCOUNT_TYPE[session.accountType], session.phoneNumber).catch((err) => {
+      setError(err instanceof ApiError ? err.message : "Could not send verification code. Please try again.");
+    });
     inputs.current[0]?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -28,6 +43,10 @@ function VerifyForm() {
     const t = setTimeout(() => setResendTimer(n => n - 1), 1000);
     return () => clearTimeout(t);
   }, [resendTimer]);
+
+  if (!session) return null;
+
+  const role = ROLE_BY_ACCOUNT_TYPE[session.accountType];
 
   const handleChange = (i: number, val: string) => {
     const digit = val.replace(/\D/g, "").slice(-1);
@@ -54,15 +73,13 @@ function VerifyForm() {
   };
 
   const handleResend = async () => {
-    const pending = getPendingSignup();
-    if (!pending) { setError("Your session expired. Please start over."); return; }
     setOtp(["", "", "", "", "", ""]);
     setError("");
     setResendTimer(30);
     setCanResend(false);
     inputs.current[0]?.focus();
     try {
-      await requestOtp(pending.role, pending.phoneNumber);
+      await requestOtp(role, session.phoneNumber);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not resend code. Please try again.");
     }
@@ -70,53 +87,13 @@ function VerifyForm() {
 
   const handleVerify = async () => {
     if (otp.join("").length < 6) { setError("Enter the 6-digit code sent to your phone."); return; }
-    const pending = getPendingSignup();
-    if (!pending) { setError("Your session expired. Please start over."); return; }
 
     setLoading(true);
     setError("");
     try {
-      await verifyOtp(pending.role, pending.phoneNumber, otp.join(""));
-
-      if (pending.role === "user") {
-        await registerUser({
-          phoneNumber: pending.phoneNumber,
-          fullName: pending.payload.fullName,
-          email: pending.payload.email,
-          password: pending.payload.password,
-          pin: pending.payload.pin,
-        });
-        clearPendingSignup();
-        router.push("/signin?registered=true");
-      } else if (pending.role === "rider") {
-        await registerRider({
-          phoneNumber: pending.phoneNumber,
-          fullName: pending.payload.fullName,
-          email: pending.payload.email,
-          password: pending.payload.password,
-          vehicleType: pending.payload.vehicleType,
-          vehiclePlateNumber: pending.payload.vehiclePlateNumber,
-          nin: pending.payload.nin,
-          bankName: pending.payload.bankName,
-          bankAccountNumber: pending.payload.bankAccountNumber,
-          bankAccountName: pending.payload.bankAccountName,
-        });
-        clearPendingSignup();
-        router.push("/signup/success?type=rider");
-      } else {
-        await registerMerchant({
-          phoneNumber: pending.phoneNumber,
-          businessName: pending.payload.businessName,
-          ownerName: pending.payload.ownerName,
-          email: pending.payload.email,
-          password: pending.payload.password,
-          address: pending.payload.address,
-          businessRegistrationNumber: pending.payload.businessRegistrationNumber,
-          businessCategory: pending.payload.businessCategory,
-        });
-        clearPendingSignup();
-        router.push("/signup/success?type=merchant");
-      }
+      await verifyOtp(role, session.phoneNumber, otp.join(""));
+      markPhoneVerified();
+      router.push(from);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
@@ -142,7 +119,7 @@ function VerifyForm() {
         <h1 className="text-2xl font-extrabold text-[#0f0f0f] mb-1">Verify your number</h1>
         <p className="text-slate-500 text-sm mb-6">
           We sent a 6-digit code to{" "}
-          <span className="font-semibold text-[#0f0f0f]">{phone}</span>.
+          <span className="font-semibold text-[#0f0f0f]">{session.phoneNumber}</span>.
           Enter it below.
         </p>
 
@@ -207,8 +184,8 @@ function VerifyForm() {
         </div>
       </div>
 
-      <button onClick={() => router.back()} className="mt-6 text-xs text-slate-400 hover:text-slate-600 transition-colors">
-        ← Go back
+      <button onClick={() => router.push(from)} className="mt-6 text-xs text-slate-400 hover:text-slate-600 transition-colors">
+        Skip for now
       </button>
     </div>
   );

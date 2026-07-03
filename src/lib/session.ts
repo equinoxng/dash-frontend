@@ -8,6 +8,7 @@ export type Session = {
   accountId: string;
   fullName: string;
   phoneNumber: string;
+  phoneVerified: boolean;
 };
 
 export function saveSession(session: Session) {
@@ -24,4 +25,10 @@ export function getSession(): Session | null {
 export function clearSession() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(SESSION_KEY);
+}
+
+export function markPhoneVerified() {
+  const session = getSession();
+  if (!session) return;
+  saveSession({ ...session, phoneVerified: true });
 }

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { addToBalance, formatNaira } from "@/lib/wallet";
+import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
 const PRESETS = [5000, 10000, 20000, 50000, 100000];
 const EXPIRY_SECONDS = 30 * 60;
@@ -64,6 +65,10 @@ export default function FundWallet() {
       <Link href="/dashboard" className="mb-8">
         <Image src="/logo.png" alt="Dash by Equinox" width={100} height={38} priority />
       </Link>
+
+      <div className="w-full max-w-md">
+        <VerifyPhoneBanner />
+      </div>
 
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border p-8" style={{ borderColor: "#e0d9d0" }}>
 

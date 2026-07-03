@@ -3,8 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { requestOtp, BUSINESS_CATEGORIES } from "@/lib/auth";
-import { savePendingSignup } from "@/lib/pendingSignup";
+import { registerMerchant, BUSINESS_CATEGORIES } from "@/lib/auth";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
 
@@ -23,22 +22,17 @@ export default function MerchantSignup() {
     setLoading(true);
     setError("");
     try {
-      const phoneNumber = toApiPhone(form.phone);
-      await requestOtp("merchant", phoneNumber);
-      savePendingSignup({
-        role: "merchant",
-        phoneNumber,
-        payload: {
-          businessName: form.businessName,
-          ownerName: form.ownerName,
-          email: form.email,
-          password: form.password,
-          address: form.address,
-          businessRegistrationNumber: form.cacNumber,
-          businessCategory: BUSINESS_CATEGORIES[form.businessType] || form.businessType,
-        },
+      await registerMerchant({
+        phoneNumber: toApiPhone(form.phone),
+        businessName: form.businessName,
+        ownerName: form.ownerName,
+        email: form.email,
+        password: form.password,
+        address: form.address,
+        businessRegistrationNumber: form.cacNumber,
+        businessCategory: BUSINESS_CATEGORIES[form.businessType] || form.businessType,
       });
-      router.push(`/verify?role=merchant&phone=${encodeURIComponent("+234 " + form.phone)}`);
+      router.push("/signup/success?type=merchant");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
       setLoading(false);

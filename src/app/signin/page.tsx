@@ -32,6 +32,7 @@ function SignInForm() {
         accountId: response.accountId,
         fullName: response.fullName,
         phoneNumber: toApiPhone(form.phone),
+        phoneVerified: response.phoneVerified,
       });
       router.push("/dashboard");
     } catch (err) {

@@ -3,8 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { requestOtp, VEHICLE_TYPES } from "@/lib/auth";
-import { savePendingSignup } from "@/lib/pendingSignup";
+import { registerRider, VEHICLE_TYPES } from "@/lib/auth";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
 
@@ -27,24 +26,19 @@ export default function RiderSignup() {
     setLoading(true);
     setError("");
     try {
-      const phoneNumber = toApiPhone(form.phone);
-      await requestOtp("rider", phoneNumber);
-      savePendingSignup({
-        role: "rider",
-        phoneNumber,
-        payload: {
-          fullName: form.fullName,
-          email: form.email,
-          password: form.password,
-          vehicleType: VEHICLE_TYPES[form.vehicleType] || form.vehicleType,
-          vehiclePlateNumber: form.plateNumber,
-          nin: form.nin,
-          bankName: form.bankName,
-          bankAccountNumber: form.accountNumber,
-          bankAccountName: form.accountName,
-        },
+      await registerRider({
+        phoneNumber: toApiPhone(form.phone),
+        fullName: form.fullName,
+        email: form.email,
+        password: form.password,
+        vehicleType: VEHICLE_TYPES[form.vehicleType] || form.vehicleType,
+        vehiclePlateNumber: form.plateNumber,
+        nin: form.nin,
+        bankName: form.bankName,
+        bankAccountNumber: form.accountNumber,
+        bankAccountName: form.accountName,
       });
-      router.push(`/verify?role=rider&phone=${encodeURIComponent("+234 " + form.phone)}`);
+      router.push("/signup/success?type=rider");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
       setLoading(false);

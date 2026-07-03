@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { getBalance, addToBalance, formatNaira } from "@/lib/wallet";
 import { addActivity } from "@/lib/activity";
 import PinModal from "@/components/PinModal";
+import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
 type Stage = "amount" | "confirm" | "searching" | "onway" | "arrived" | "delivered";
 
@@ -312,6 +313,10 @@ export default function RequestCash() {
       <Link href="/dashboard" className="mb-8">
         <Image src="/logo.png" alt="Dash by Equinox" width={100} height={38} priority />
       </Link>
+
+      <div className="w-full max-w-md">
+        <VerifyPhoneBanner />
+      </div>
 
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border p-8" style={{ borderColor: "#e0d9d0" }}>
 
