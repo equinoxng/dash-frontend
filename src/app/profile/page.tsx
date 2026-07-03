@@ -2,6 +2,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { logout } from "@/lib/auth";
+import { getSession, clearSession } from "@/lib/session";
 
 const MENU = [
   {
@@ -33,7 +35,16 @@ const MENU = [
 export default function ProfilePage() {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const session = getSession();
+    if (session) {
+      try {
+        await logout(session.token);
+      } catch {
+        // best-effort: still clear local session even if the request fails
+      }
+    }
+    clearSession();
     router.push("/signin");
   };
 

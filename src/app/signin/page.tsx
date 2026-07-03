@@ -3,6 +3,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { login } from "@/lib/auth";
+import { saveSession } from "@/lib/session";
+import { toApiPhone } from "@/lib/phone";
+import { ApiError } from "@/lib/api";
 
 function SignInForm() {
   const router = useRouter();
@@ -20,9 +24,21 @@ function SignInForm() {
     e.preventDefault();
     if (!form.phone || !form.password) { setError("Please fill in all fields."); return; }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    router.push("/dashboard");
+    try {
+      const response = await login(toApiPhone(form.phone), form.password);
+      saveSession({
+        token: response.token,
+        accountType: response.accountType,
+        accountId: response.accountId,
+        fullName: response.fullName,
+        phoneNumber: toApiPhone(form.phone),
+      });
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const borderStyle = { borderColor: "#e0d9d0" };
