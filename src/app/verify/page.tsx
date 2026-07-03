@@ -3,11 +3,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { requestOtp, verifyOtp, registerUser, registerRider, registerMerchant } from "@/lib/auth";
+import { getPendingSignup, clearPendingSignup } from "@/lib/pendingSignup";
+import { ApiError } from "@/lib/api";
 
 function VerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const from = searchParams.get("from") || "signup"; // "signup" | "signin"
   const phone = searchParams.get("phone") || "080X XXX XXXX";
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -51,20 +53,74 @@ function VerifyForm() {
     inputs.current[Math.min(digits.length, 5)]?.focus();
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
+    const pending = getPendingSignup();
+    if (!pending) { setError("Your session expired. Please start over."); return; }
     setOtp(["", "", "", "", "", ""]);
     setError("");
     setResendTimer(30);
     setCanResend(false);
     inputs.current[0]?.focus();
+    try {
+      await requestOtp(pending.role, pending.phoneNumber);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not resend code. Please try again.");
+    }
   };
 
   const handleVerify = async () => {
     if (otp.join("").length < 6) { setError("Enter the 6-digit code sent to your phone."); return; }
+    const pending = getPendingSignup();
+    if (!pending) { setError("Your session expired. Please start over."); return; }
+
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1500));
-    setLoading(false);
-    router.push("/dashboard");
+    setError("");
+    try {
+      await verifyOtp(pending.role, pending.phoneNumber, otp.join(""));
+
+      if (pending.role === "user") {
+        await registerUser({
+          phoneNumber: pending.phoneNumber,
+          fullName: pending.payload.fullName,
+          email: pending.payload.email,
+          password: pending.payload.password,
+          pin: pending.payload.pin,
+        });
+        clearPendingSignup();
+        router.push("/signin?registered=true");
+      } else if (pending.role === "rider") {
+        await registerRider({
+          phoneNumber: pending.phoneNumber,
+          fullName: pending.payload.fullName,
+          email: pending.payload.email,
+          password: pending.payload.password,
+          vehicleType: pending.payload.vehicleType,
+          vehiclePlateNumber: pending.payload.vehiclePlateNumber,
+          nin: pending.payload.nin,
+          bankName: pending.payload.bankName,
+          bankAccountNumber: pending.payload.bankAccountNumber,
+          bankAccountName: pending.payload.bankAccountName,
+        });
+        clearPendingSignup();
+        router.push("/signup/success?type=rider");
+      } else {
+        await registerMerchant({
+          phoneNumber: pending.phoneNumber,
+          businessName: pending.payload.businessName,
+          ownerName: pending.payload.ownerName,
+          email: pending.payload.email,
+          password: pending.payload.password,
+          address: pending.payload.address,
+          businessRegistrationNumber: pending.payload.businessRegistrationNumber,
+          businessCategory: pending.payload.businessCategory,
+        });
+        clearPendingSignup();
+        router.push("/signup/success?type=merchant");
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setLoading(false);
+    }
   };
 
   const filled = otp.join("").length;

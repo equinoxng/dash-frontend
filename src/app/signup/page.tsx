@@ -3,6 +3,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { requestOtp } from "@/lib/auth";
+import { savePendingSignup } from "@/lib/pendingSignup";
+import { toApiPhone } from "@/lib/phone";
+import { ApiError } from "@/lib/api";
 
 export default function UserSignup() {
   const router = useRouter();
@@ -10,15 +14,27 @@ export default function UserSignup() {
   const [form, setForm] = useState({ fullName: "", phone: "", email: "", password: "", pin: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleCreate = async () => {
     if (form.pin.length < 4) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    router.push(`/verify?from=signup&phone=${encodeURIComponent("+234 " + form.phone)}`);
+    setError("");
+    try {
+      const phoneNumber = toApiPhone(form.phone);
+      await requestOtp("user", phoneNumber);
+      savePendingSignup({
+        role: "user",
+        phoneNumber,
+        payload: { fullName: form.fullName, email: form.email, password: form.password, pin: form.pin },
+      });
+      router.push(`/verify?role=user&phone=${encodeURIComponent("+234 " + form.phone)}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setLoading(false);
+    }
   };
 
   const inputClass = "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none transition bg-white";
@@ -123,6 +139,10 @@ export default function UserSignup() {
                 </button>
               ))}
             </div>
+
+            {error && (
+              <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">{error}</p>
+            )}
 
             <button onClick={handleCreate} disabled={form.pin.length < 4 || loading}
               className="w-full font-bold py-3.5 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"

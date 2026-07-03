@@ -3,6 +3,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { requestOtp, BUSINESS_CATEGORIES } from "@/lib/auth";
+import { savePendingSignup } from "@/lib/pendingSignup";
+import { toApiPhone } from "@/lib/phone";
+import { ApiError } from "@/lib/api";
 
 export default function MerchantSignup() {
   const router = useRouter();
@@ -10,8 +14,36 @@ export default function MerchantSignup() {
     businessName: "", ownerName: "", phone: "", email: "", password: "",
     address: "", businessType: "", cacNumber: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const phoneNumber = toApiPhone(form.phone);
+      await requestOtp("merchant", phoneNumber);
+      savePendingSignup({
+        role: "merchant",
+        phoneNumber,
+        payload: {
+          businessName: form.businessName,
+          ownerName: form.ownerName,
+          email: form.email,
+          password: form.password,
+          address: form.address,
+          businessRegistrationNumber: form.cacNumber,
+          businessCategory: BUSINESS_CATEGORIES[form.businessType] || form.businessType,
+        },
+      });
+      router.push(`/verify?role=merchant&phone=${encodeURIComponent("+234 " + form.phone)}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 py-12">
@@ -97,9 +129,13 @@ export default function MerchantSignup() {
           <Link href="#" className="underline text-slate-700">Privacy policy</Link>.
         </div>
 
-        <button onClick={() => router.push("/signup/success?type=merchant")}
-          className="mt-6 w-full bg-slate-900 text-white font-semibold py-3.5 rounded-xl hover:bg-slate-700 transition-colors">
-          Submit application
+        {error && (
+          <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-4">{error}</p>
+        )}
+
+        <button onClick={handleSubmit} disabled={loading}
+          className="mt-6 w-full bg-slate-900 text-white font-semibold py-3.5 rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+          {loading ? "Submitting…" : "Submit application"}
         </button>
 
         <p className="mt-6 text-center text-sm text-slate-500">

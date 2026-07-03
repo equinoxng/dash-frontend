@@ -3,6 +3,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { requestOtp, VEHICLE_TYPES } from "@/lib/auth";
+import { savePendingSignup } from "@/lib/pendingSignup";
+import { toApiPhone } from "@/lib/phone";
+import { ApiError } from "@/lib/api";
 
 const steps = ["Personal info", "Vehicle & docs", "Bank details"];
 
@@ -14,8 +18,38 @@ export default function RiderSignup() {
     vehicleType: "", plateNumber: "", nin: "",
     bankName: "", accountNumber: "", accountName: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const phoneNumber = toApiPhone(form.phone);
+      await requestOtp("rider", phoneNumber);
+      savePendingSignup({
+        role: "rider",
+        phoneNumber,
+        payload: {
+          fullName: form.fullName,
+          email: form.email,
+          password: form.password,
+          vehicleType: VEHICLE_TYPES[form.vehicleType] || form.vehicleType,
+          vehiclePlateNumber: form.plateNumber,
+          nin: form.nin,
+          bankName: form.bankName,
+          bankAccountNumber: form.accountNumber,
+          bankAccountName: form.accountName,
+        },
+      });
+      router.push(`/verify?role=rider&phone=${encodeURIComponent("+234 " + form.phone)}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
 
   const Field = ({ label, name, type = "text", placeholder }: { label: string; name: string; type?: string; placeholder?: string }) => (
     <div>
@@ -133,17 +167,22 @@ export default function RiderSignup() {
           </>
         )}
 
+        {error && (
+          <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-4">{error}</p>
+        )}
+
         <div className="flex gap-3 mt-6">
           {step > 0 && (
-            <button onClick={() => setStep(step - 1)} className="flex-1 border border-slate-200 text-slate-700 font-semibold py-3.5 rounded-xl hover:bg-slate-50 transition-colors">
+            <button onClick={() => setStep(step - 1)} disabled={loading} className="flex-1 border border-slate-200 text-slate-700 font-semibold py-3.5 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-40">
               Back
             </button>
           )}
           <button
-            onClick={() => step < 2 ? setStep(step + 1) : router.push("/signup/success?type=rider")}
-            className="flex-1 bg-slate-900 text-white font-semibold py-3.5 rounded-xl hover:bg-slate-700 transition-colors"
+            onClick={() => step < 2 ? setStep(step + 1) : handleSubmit()}
+            disabled={loading}
+            className="flex-1 bg-slate-900 text-white font-semibold py-3.5 rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {step === 2 ? "Submit application" : "Continue"}
+            {step === 2 ? (loading ? "Submitting…" : "Submit application") : "Continue"}
           </button>
         </div>
 
