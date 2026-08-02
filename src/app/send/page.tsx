@@ -3,16 +3,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { formatNaira, createCashRequest } from "@/lib/requests";
+import { formatNaira, SEND_FLOW_AVAILABLE } from "@/lib/requests";
 import { getSession } from "@/lib/session";
-import { toApiPhone } from "@/lib/phone";
-import { ApiError } from "@/lib/api";
 import { listContacts, type Contact } from "@/lib/contacts";
 import { getWallet } from "@/lib/wallet";
-import PinModal from "@/components/PinModal";
 import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
-type Stage = "recipient" | "address" | "amount" | "confirm" | "processing" | "success";
+type Stage = "recipient" | "address" | "amount" | "confirm";
 
 const DELIVERY_FEE = 500;
 const AMOUNTS = [5000, 10000, 20000, 50000, 100000, 200000];
@@ -64,10 +61,6 @@ export default function SendCash() {
   const [selectedAmt, setSelectedAmt] = useState(20000);
   const [customAmt, setCustomAmt] = useState("");
   const [amountError, setAmountError] = useState("");
-  const [showPin, setShowPin] = useState(false);
-  const [pinLoading, setPinLoading] = useState(false);
-  const [pinError, setPinError] = useState("");
-  const [requestId, setRequestId] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
 
@@ -108,35 +101,6 @@ export default function SendCash() {
     setAmountError("");
     setStage("confirm");
   };
-
-  const handlePinConfirm = async (pin: string) => {
-    const session = getSession();
-    if (!session) { router.push("/signin"); return; }
-
-    setPinError("");
-    setPinLoading(true);
-    try {
-      const request = await createCashRequest(session.token, {
-        type: "SEND_CASH",
-        pin,
-        amount: finalAmt,
-        recipientName,
-        recipientPhone: toApiPhone(recipientPhone),
-        deliveryAddress: `${addressLine}, ${addressCity}${addressLandmark ? ` (${addressLandmark})` : ""}`,
-      });
-      setPinLoading(false);
-      setShowPin(false);
-      setRequestId(request.requestId);
-      setStage("processing");
-      await new Promise(r => setTimeout(r, 2500));
-      setStage("success");
-    } catch (err) {
-      setPinLoading(false);
-      setPinError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
-    }
-  };
-
-  const handleConfirm = () => { setPinError(""); setShowPin(true); };
 
   const inputClass = "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none transition bg-white text-[#0f0f0f] placeholder-slate-300";
   const borderStyle = { borderColor: "#e0d9d0" };
@@ -352,7 +316,7 @@ export default function SendCash() {
 
             {/* Amount hero */}
             <div className="rounded-2xl p-6 mb-4 text-center" style={{ background: "#f5f0eb" }}>
-              <p className="text-slate-400 text-xs mb-1">You're sending</p>
+              <p className="text-slate-400 text-xs mb-1">You&apos;re sending</p>
               <p className="text-[#0f0f0f] font-extrabold text-4xl">{formatNaira(finalAmt)}</p>
             </div>
 
@@ -401,99 +365,27 @@ export default function SendCash() {
               </div>
             </div>
 
+            {!SEND_FLOW_AVAILABLE && (
+              <div className="flex items-start gap-2.5 mb-4 rounded-xl px-3 py-2.5" style={{ background: "#fdf6e3" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="1.8" strokeLinecap="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <p className="text-xs" style={{ color: "#92400e" }}>Send is being rebuilt on Dash&apos;s new escrow engine. Dispatching isn&apos;t available yet — check back soon.</p>
+              </div>
+            )}
+
             {/* Escrow note */}
             <div className="flex items-start gap-2.5 mb-6">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.8" strokeLinecap="round" className="shrink-0 mt-0.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
               <p className="text-xs text-slate-400">Funds are held in escrow until the recipient confirms receipt with their PIN.</p>
             </div>
 
-            <button onClick={handleConfirm}
-              className="w-full font-bold py-4 rounded-2xl text-white hover:opacity-90 transition-opacity"
-              style={{ background: "#1e1240" }}>
+            <button disabled={!SEND_FLOW_AVAILABLE}
+              className="w-full font-bold py-4 rounded-2xl text-white transition-opacity"
+              style={{ background: "#1e1240", opacity: SEND_FLOW_AVAILABLE ? 1 : 0.5, cursor: SEND_FLOW_AVAILABLE ? "pointer" : "not-allowed" }}>
               Confirm & dispatch vendor
             </button>
           </>
         )}
-
-        {/* ── PROCESSING ── */}
-        {stage === "processing" && (
-          <div className="flex flex-col items-center justify-center py-10 text-center gap-5">
-            <div className="relative w-20 h-20">
-              <div className="absolute inset-0 rounded-full border-4 animate-ping" style={{ borderColor: "#ede8fb" }} />
-              <div className="absolute inset-0 rounded-full border-4 border-t-transparent animate-spin"
-                style={{ borderColor: "#1e1240", borderTopColor: "transparent" }} />
-              <div className="absolute inset-3 bg-white rounded-full flex items-center justify-center shadow">
-                <Image src="/logo.png" alt="Dash" width={32} height={20} />
-              </div>
-            </div>
-            <div>
-              <p className="text-[#0f0f0f] font-bold text-lg mb-1">Dispatching vendor…</p>
-              <p className="text-slate-400 text-sm">Finding a rider near {addressCity}</p>
-            </div>
-            <div className="flex gap-1.5">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="w-2 h-2 rounded-full animate-bounce"
-                  style={{ background: "#1e1240", animationDelay: `${i * 0.2}s` }} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── SUCCESS ── */}
-        {stage === "success" && (
-          <div className="flex flex-col items-center text-center gap-2 py-2">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2" style={{ background: "#1e1240" }}>
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <path d="M6 14l5 5 11-11" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <p className="text-[#0f0f0f] font-extrabold text-2xl">Cash on its way!</p>
-            <p className="text-slate-500 text-sm mb-2">
-              {formatNaira(finalAmt)} is being delivered to {recipientName}
-            </p>
-
-            <div className="rounded-2xl p-4 w-full space-y-2.5 text-sm mt-2" style={{ background: "#f5f0eb" }}>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Recipient</span>
-                <span className="text-[#0f0f0f] font-semibold">{recipientName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Phone</span>
-                <span className="text-[#0f0f0f] font-medium">+234 {recipientPhone}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Address</span>
-                <span className="text-[#0f0f0f] font-medium text-right max-w-[55%]">{addressLine}, {addressCity}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Reference</span>
-                <span className="text-[#0f0f0f] font-medium">{requestId}</span>
-              </div>
-              <div className="border-t pt-2.5 flex justify-between" style={{ borderColor: "#e0d9d0" }}>
-                <span className="text-slate-400">Amount sent</span>
-                <span className="text-[#0f0f0f] font-bold">{formatNaira(finalAmt)}</span>
-              </div>
-            </div>
-
-            <button onClick={() => router.push("/dashboard")}
-              className="w-full font-bold py-3.5 rounded-xl text-white hover:opacity-90 transition-opacity mt-4"
-              style={{ background: "#1e1240" }}>
-              Back to dashboard
-            </button>
-          </div>
-        )}
       </div>
-
-      {showPin && (
-        <PinModal
-          title="Confirm send"
-          subtitle={`Enter your PIN to send ${formatNaira(finalAmt)} to ${recipientName}`}
-          loading={pinLoading}
-          error={pinError}
-          onConfirm={handlePinConfirm}
-          onCancel={() => setShowPin(false)}
-        />
-      )}
     </div>
   );
 }

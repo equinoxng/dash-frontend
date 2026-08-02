@@ -33,31 +33,13 @@ export type CashRequest = {
   createdAt: string;
 };
 
-export type CreateCashRequestPayload = {
-  type: RequestType;
-  pin: string;
-  amount: number;
-  recipientName?: string;
-  recipientPhone?: string;
-  deliveryAddress?: string;
-  deliveryAddressId?: string;
-};
-
-export function createCashRequest(token: string, payload: CreateCashRequestPayload) {
-  return apiFetch<CashRequest>("/api/requests", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function confirmDelivery(token: string, requestId: string, pin: string) {
-  return apiFetch<CashRequest>(`/api/requests/${requestId}/confirm`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ pin }),
-  });
-}
+// Creating/confirming a web send or receive request no longer has a backend endpoint —
+// the old POST /api/requests and POST /api/requests/{id}/confirm were removed when the
+// backend's Request/RequestService became USSD-only. The replacement (the new transaction
+// state machine) doesn't have a REST API yet; that lands with the send-flow milestone.
+// listRequests (GET /api/requests) still works — it now only ever returns USSD-originated
+// requests for web users, which is accurate given the above.
+export const SEND_FLOW_AVAILABLE = false;
 
 export function listRequests(token: string) {
   return apiFetch<CashRequest[]>("/api/requests", {

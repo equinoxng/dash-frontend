@@ -4,26 +4,46 @@ export type Wallet = {
   balance: number;
   escrowBalance: number;
   currency: string;
+  frozen: boolean;
 };
 
-export function getWallet(token: string) {
-  return apiFetch<Wallet>("/api/wallet", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+type WalletResponseDto = {
+  balanceKobo: number;
+  escrowBalanceKobo: number;
+  currency: string;
+  frozen: boolean;
+};
+
+function fromDto(dto: WalletResponseDto): Wallet {
+  return {
+    balance: dto.balanceKobo / 100,
+    escrowBalance: dto.escrowBalanceKobo / 100,
+    currency: dto.currency,
+    frozen: dto.frozen,
+  };
 }
 
-export function fundWallet(token: string, amount: number, pin: string) {
-  return apiFetch<Wallet>("/api/wallet/fund", {
-    method: "POST",
+export async function getWallet(token: string): Promise<Wallet> {
+  const dto = await apiFetch<WalletResponseDto>("/api/wallet", {
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ amount, pin }),
   });
+  return fromDto(dto);
 }
 
-export function withdrawWallet(token: string, amount: number, pin: string) {
-  return apiFetch<Wallet>("/api/wallet/withdraw", {
+export async function fundWallet(token: string, amount: number, pin: string): Promise<Wallet> {
+  const dto = await apiFetch<WalletResponseDto>("/api/wallet/fund", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ amount, pin }),
+    body: JSON.stringify({ amountKobo: Math.round(amount * 100), pin }),
   });
+  return fromDto(dto);
+}
+
+export async function withdrawWallet(token: string, amount: number, pin: string): Promise<Wallet> {
+  const dto = await apiFetch<WalletResponseDto>("/api/wallet/withdraw", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ amountKobo: Math.round(amount * 100), pin }),
+  });
+  return fromDto(dto);
 }

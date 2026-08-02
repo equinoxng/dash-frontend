@@ -1,49 +1,25 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { formatNaira, createCashRequest, confirmDelivery } from "@/lib/requests";
+import { useState, useEffect } from "react";
+import { formatNaira, SEND_FLOW_AVAILABLE } from "@/lib/requests";
 import { getSession } from "@/lib/session";
-import { ApiError } from "@/lib/api";
 import { listAddresses, type DeliveryAddress } from "@/lib/addresses";
-import PinModal from "@/components/PinModal";
 import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
-type Stage = "amount" | "confirm" | "searching" | "onway" | "arrived" | "delivered";
+type Stage = "amount" | "confirm";
 
 const AMOUNTS = [5000, 10000, 20000, 50000, 100000, 200000];
 const DELIVERY_FEE = 500;
 const SERVICE_FEE = 100;
-const TOTAL_TICKS = 18;
-
-function genPin() {
-  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 10)).join("");
-}
-
-// Rider path: SVG coords from start to destination
-const RIDER_START = { x: 310, y: 40 };
-const DEST = { x: 195, y: 155 };
 
 export default function RequestCash() {
-  const router = useRouter();
   const [stage, setStage] = useState<Stage>("amount");
   const [selectedAmt, setSelectedAmt] = useState(20000);
   const [customAmt, setCustomAmt] = useState("");
   const [error, setError] = useState("");
   const [selectedAddress, setSelectedAddress] = useState(0);
-  const [showPin, setShowPin] = useState(false);
-  const [pinLoading, setPinLoading] = useState(false);
-  const [pinError, setPinError] = useState("");
-  const [requestId, setRequestId] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [tick, setTick] = useState(0); // 0 → TOTAL_TICKS
-  const [pin] = useState(genPin());
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([]);
-  const [showConfirmPin, setShowConfirmPin] = useState(false);
-  const [confirmPinLoading, setConfirmPinLoading] = useState(false);
-  const [confirmPinError, setConfirmPinError] = useState("");
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const session = getSession();
@@ -53,309 +29,12 @@ export default function RequestCash() {
 
   const finalAmt = customAmt ? parseInt(customAmt.replace(/\D/g, "")) || selectedAmt : selectedAmt;
   const total = finalAmt + DELIVERY_FEE + SERVICE_FEE;
-  const progress = Math.min((tick / TOTAL_TICKS) * 100, 100);
-  const eta = Math.max(TOTAL_TICKS - tick, 0);
-
-  // Rider position interpolated along path
-  const riderX = RIDER_START.x + (DEST.x - RIDER_START.x) * (progress / 100);
-  const riderY = RIDER_START.y + (DEST.y - RIDER_START.y) * (progress / 100);
-
-  const STEPS = [
-    { label: "Vendor assigned", sub: "Chidi is preparing your cash", done: tick >= 0 },
-    { label: "Cash secured", sub: "Notes counted and sealed in pouch", done: tick >= 5 },
-    { label: "En route to you", sub: "Heading to your location", done: tick >= 10 },
-    { label: "Arrived", sub: "Enter your PIN to confirm handoff", done: tick >= TOTAL_TICKS },
-  ];
-
-  useEffect(() => {
-    if (stage === "onway") {
-      setTick(0);
-      timerRef.current = setInterval(() => {
-        setTick((t) => {
-          if (t >= TOTAL_TICKS - 1) {
-            if (timerRef.current) clearInterval(timerRef.current);
-            setStage("arrived");
-            return TOTAL_TICKS;
-          }
-          return t + 1;
-        });
-      }, 800);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [stage]);
 
   const handleContinue = () => {
     if (finalAmt <= 0) { setError("Enter a valid amount."); return; }
     setError("");
     setStage("confirm");
   };
-
-  const handlePinConfirm = async (pin: string) => {
-    const session = getSession();
-    if (!session) { router.push("/signin"); return; }
-
-    setPinError("");
-    setPinLoading(true);
-    try {
-      const request = await createCashRequest(session.token, {
-        type: "RECEIVE_CASH",
-        pin,
-        amount: finalAmt,
-        deliveryAddressId: addresses[selectedAddress]?.id,
-      });
-      setPinLoading(false);
-      setShowPin(false);
-      setRequestId(request.requestId);
-      setDeliveryAddress(request.deliveryAddress ?? "");
-      setStage("searching");
-      setTimeout(() => setStage("onway"), 2200);
-    } catch (err) {
-      setPinLoading(false);
-      setPinError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
-    }
-  };
-
-  const handleConfirm = () => { setPinError(""); setShowPin(true); };
-
-  const handleConfirmDeliveryPin = async (deliveryPin: string) => {
-    const session = getSession();
-    if (!session) { router.push("/signin"); return; }
-
-    setConfirmPinError("");
-    setConfirmPinLoading(true);
-    try {
-      await confirmDelivery(session.token, requestId, deliveryPin);
-      setConfirmPinLoading(false);
-      setShowConfirmPin(false);
-      setStage("delivered");
-    } catch (err) {
-      setConfirmPinLoading(false);
-      setConfirmPinError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
-    }
-  };
-
-  const handleDone = () => router.push("/dashboard");
-
-  // Contained immersive layout for onway / arrived
-  if (stage === "onway" || stage === "arrived") {
-    const isArrived = stage === "arrived";
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ background: "#f5f0eb" }}>
-        <div className="w-full max-w-md rounded-3xl overflow-hidden shadow-xl" style={{ background: "#111" }}>
-        {/* ── MAP ── */}
-        <div className="relative" style={{ height: 260 }}>
-          <svg width="100%" height="100%" viewBox="0 0 400 280" preserveAspectRatio="xMidYMid slice">
-            {/* Map background */}
-            <rect width="400" height="280" fill="#ede9e2"/>
-
-            {/* Green parks */}
-            <rect x="88" y="78" width="44" height="58" rx="6" fill="#c5d4b2"/>
-            <rect x="215" y="78" width="90" height="58" rx="6" fill="#c5d4b2"/>
-            <rect x="10" y="160" width="55" height="40" rx="5" fill="#c5d4b2"/>
-            <rect x="330" y="170" width="65" height="50" rx="5" fill="#c5d4b2"/>
-
-            {/* Building blocks */}
-            <rect x="215" y="160" width="50" height="28" rx="4" fill="#d9d4cc"/>
-            <rect x="275" y="160" width="45" height="28" rx="4" fill="#d9d4cc"/>
-            <rect x="340" y="78" width="55" height="78" rx="5" fill="#d9d4cc"/>
-            <rect x="10" y="10" width="65" height="55" rx="5" fill="#d9d4cc"/>
-            <rect x="145" y="10" width="40" height="35" rx="4" fill="#d9d4cc"/>
-
-            {/* Major roads (white, wider) */}
-            <line x1="0" y1="70" x2="400" y2="70" stroke="white" strokeWidth="10"/>
-            <line x1="0" y1="150" x2="400" y2="150" stroke="white" strokeWidth="7"/>
-            <line x1="0" y1="210" x2="400" y2="210" stroke="white" strokeWidth="10"/>
-            <line x1="80" y1="0" x2="80" y2="280" stroke="white" strokeWidth="10"/>
-            <line x1="200" y1="0" x2="200" y2="280" stroke="white" strokeWidth="7"/>
-            <line x1="320" y1="0" x2="320" y2="280" stroke="white" strokeWidth="10"/>
-
-            {/* Minor roads */}
-            <line x1="0" y1="110" x2="400" y2="110" stroke="white" strokeWidth="4"/>
-            <line x1="0" y1="180" x2="400" y2="180" stroke="white" strokeWidth="4"/>
-            <line x1="140" y1="0" x2="140" y2="280" stroke="white" strokeWidth="4"/>
-            <line x1="260" y1="0" x2="260" y2="280" stroke="white" strokeWidth="4"/>
-
-            {/* Diagonal road */}
-            <line x1="80" y1="150" x2="200" y2="210" stroke="white" strokeWidth="6"/>
-            <line x1="200" y1="70" x2="320" y2="150" stroke="white" strokeWidth="5"/>
-
-            {/* Road dashes (center lines) */}
-            {[110, 150, 180].map((y, i) => (
-              [0,1,2,3,4,5,6,7,8,9].map(j => (
-                <line key={`h${i}-${j}`} x1={j*45} y1={y} x2={j*45+22} y2={y}
-                  stroke="#e5e1da" strokeWidth="1.5" strokeDasharray="none"/>
-              ))
-            ))}
-
-            {/* Destination pin (user location) */}
-            <circle cx={DEST.x} cy={DEST.y} r="18" fill="white" opacity="0.9"/>
-            <circle cx={DEST.x} cy={DEST.y} r="13" fill="white"/>
-            <path d={`M${DEST.x} ${DEST.y - 7} L${DEST.x + 4} ${DEST.y + 2} L${DEST.x - 4} ${DEST.y + 2} Z`}
-              fill="#1e1240" stroke="#1e1240" strokeWidth="0.5"/>
-            <circle cx={DEST.x} cy={DEST.y - 9} r="4" fill="#1e1240"/>
-
-            {/* Pulse ring around destination */}
-            <circle cx={DEST.x} cy={DEST.y} r="26" fill="none" stroke="#5b3fc4" strokeWidth="2" opacity="0.3">
-              <animate attributeName="r" values="18;30;18" dur="2s" repeatCount="indefinite"/>
-              <animate attributeName="opacity" values="0.4;0;0.4" dur="2s" repeatCount="indefinite"/>
-            </circle>
-
-            {/* Rider dot moving along path */}
-            <g transform={`translate(${riderX}, ${riderY})`} style={{ transition: "transform 0.7s linear" }}>
-              <circle cx="0" cy="0" r="18" fill="#111" opacity="0.9"/>
-              <circle cx="0" cy="0" r="14" fill="#1e1240"/>
-              {/* bike icon */}
-              <circle cx="-5" cy="3" r="4.5" fill="none" stroke="white" strokeWidth="1.4"/>
-              <circle cx="5" cy="3" r="4.5" fill="none" stroke="white" strokeWidth="1.4"/>
-              <path d="M-5 3 L0 -3 L5 3" stroke="white" strokeWidth="1.3" fill="none" strokeLinecap="round"/>
-              <circle cx="0" cy="-5" r="1.5" fill="white"/>
-            </g>
-          </svg>
-
-          {/* Close button */}
-          <button onClick={() => router.push("/dashboard")}
-            className="absolute top-4 left-4 w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(0,0,0,0.65)" }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M4 4l8 8M12 4l-8 8" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-
-          {/* Subtle fade — just 8px */}
-          <div className="absolute bottom-0 left-0 right-0 h-8"
-            style={{ background: "linear-gradient(to bottom, transparent, #111)" }}/>
-        </div>
-
-        {/* ── BOTTOM SHEET — rounded top corners ── */}
-        <div className="px-5 pt-5 pb-8 rounded-t-3xl -mt-4 relative" style={{ background: "#111", color: "white" }}>
-          {/* drag handle */}
-          <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: "#333" }}/>
-
-          {/* Header */}
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <p className="text-slate-400 text-sm mb-0.5">
-                {isArrived ? "Vendor has arrived" : `Rider on the way · ${eta}m ETA`}
-              </p>
-              <h1 className="text-3xl font-extrabold">
-                {isArrived ? "At your door" : "En route to you"}
-              </h1>
-            </div>
-            <div className="rounded-xl px-3 py-2 text-right shrink-0 ml-3" style={{ background: "#1e1e1e" }}>
-              <p className="text-slate-400 text-xs">Delivering</p>
-              <p className="font-extrabold text-sm">{formatNaira(finalAmt)}</p>
-            </div>
-          </div>
-
-          {/* Rider card */}
-          <div className="rounded-2xl p-4 mb-5 flex items-center gap-3" style={{ background: "#1e1e1e" }}>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
-              style={{ background: "#2d2d2d", color: "white" }}>CO</div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold">Chidi Okafor</p>
-              <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="#facc15"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-                4.9 · Bike rider · Sealed cash pouch
-              </div>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <button className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "#2d2d2d" }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-              </button>
-              <button className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "#2d2d2d" }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 013.07 10.8a19.79 19.79 0 01-3.07-8.68A2 2 0 012 0h3a2 2 0 012 1.72A12.84 12.84 0 007.7 5.53a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16z"/></svg>
-              </button>
-            </div>
-          </div>
-
-          {/* Progress steps */}
-          <div className="space-y-0 mb-6">
-            {STEPS.map((step, i) => (
-              <div key={step.label} className="flex gap-3">
-                {/* Icon + line */}
-                <div className="flex flex-col items-center">
-                  <div className="w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-500"
-                    style={{
-                      borderColor: step.done ? "white" : "#3d3d3d",
-                      background: step.done ? "white" : "transparent",
-                    }}>
-                    {step.done && (
-                      i === STEPS.length - 1 && !isArrived
-                        ? <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#111" }}/>
-                        : <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#111" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    )}
-                    {!step.done && i === STEPS.findIndex(s => !s.done) && (
-                      <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#5b3fc4" }}/>
-                    )}
-                  </div>
-                  {i < STEPS.length - 1 && (
-                    <div className="w-0.5 flex-1 my-1 transition-all duration-500"
-                      style={{ background: step.done ? "white" : "#3d3d3d", minHeight: 24 }}/>
-                  )}
-                </div>
-                {/* Text */}
-                <div className="pb-5">
-                  <p className="font-semibold text-sm transition-colors" style={{ color: step.done ? "white" : "#555" }}>
-                    {step.label}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: step.done ? "#888" : "#444" }}>
-                    {step.sub}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Delivery PIN (shown when arrived) */}
-          {isArrived && (
-            <div className="rounded-2xl p-4 mb-4" style={{ background: "#1e1e1e" }}>
-              <p className="text-slate-400 text-xs mb-2">Delivery PIN — share with rider</p>
-              <div className="flex gap-2">
-                {pin.split("").map((d, i) => (
-                  <div key={i} className="flex-1 h-12 rounded-xl flex items-center justify-center font-extrabold text-xl"
-                    style={{ background: "#2d2d2d", color: "white" }}>{d}</div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* CTA button */}
-          {isArrived ? (
-            <button onClick={() => { setConfirmPinError(""); setShowConfirmPin(true); }}
-              className="w-full font-bold py-4 rounded-2xl text-[#111] hover:opacity-90 transition-opacity"
-              style={{ background: "#f0ede8" }}>
-              Confirm delivery
-            </button>
-          ) : (
-            <div className="rounded-2xl py-3 px-4 text-center text-xs" style={{ color: "#555" }}>
-              {/* ETA progress bar */}
-              <div className="w-full rounded-full h-1 mb-2" style={{ background: "#2d2d2d" }}>
-                <div className="h-1 rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: "#5b3fc4" }}/>
-              </div>
-              Rider is {eta} min away
-            </div>
-          )}
-
-          {/* Address */}
-          <p className="text-center text-xs mt-4" style={{ color: "#444" }}>
-            {deliveryAddress}
-          </p>
-        </div>
-        </div>{/* /max-w-md card */}
-
-        {showConfirmPin && (
-          <PinModal
-            title="Confirm delivery"
-            subtitle="Enter your PIN to release escrow and complete this delivery"
-            loading={confirmPinLoading}
-            error={confirmPinError}
-            onConfirm={handleConfirmDeliveryPin}
-            onCancel={() => setShowConfirmPin(false)}
-          />
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12" style={{ background: "#f5f0eb" }}>
@@ -497,77 +176,27 @@ export default function RequestCash() {
               </div>
             </div>
 
+            {!SEND_FLOW_AVAILABLE && (
+              <div className="flex items-start gap-2.5 mb-4 rounded-xl px-3 py-2.5" style={{ background: "#fdf6e3" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="1.8" strokeLinecap="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <p className="text-xs" style={{ color: "#92400e" }}>Request is being rebuilt on Dash&apos;s new escrow engine, including live rider tracking. Dispatching isn&apos;t available yet — check back soon.</p>
+              </div>
+            )}
+
             {/* Escrow note */}
             <div className="flex items-start gap-2.5 mb-6">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.8" strokeLinecap="round" className="shrink-0 mt-0.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
               <p className="text-xs text-slate-400">Funds are held in escrow until your PIN confirms the handoff.</p>
             </div>
 
-            <button onClick={handleConfirm}
-              className="w-full font-bold py-4 rounded-2xl text-[#0f0f0f] hover:opacity-90 transition-opacity"
-              style={{ background: "#eee9e3" }}>
+            <button disabled={!SEND_FLOW_AVAILABLE}
+              className="w-full font-bold py-4 rounded-2xl text-[#0f0f0f] transition-opacity"
+              style={{ background: "#eee9e3", opacity: SEND_FLOW_AVAILABLE ? 1 : 0.5, cursor: SEND_FLOW_AVAILABLE ? "pointer" : "not-allowed" }}>
               Confirm & dispatch vendor
             </button>
           </>
         )}
-
-        {/* ── SEARCHING ── */}
-        {stage === "searching" && (
-          <div className="flex flex-col items-center justify-center py-10 text-center gap-5">
-            <div className="relative w-20 h-20">
-              <div className="absolute inset-0 rounded-full border-4 animate-ping" style={{ borderColor: "#ede8fb" }} />
-              <div className="absolute inset-0 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#1e1240", borderTopColor: "transparent" }} />
-              <div className="absolute inset-3 bg-white rounded-full flex items-center justify-center shadow">
-                <Image src="/logo.png" alt="Dash" width={32} height={20} />
-              </div>
-            </div>
-            <div>
-              <p className="text-[#0f0f0f] font-bold text-lg mb-1">Finding your rider…</p>
-              <p className="text-slate-400 text-sm">Usually takes under 30 seconds</p>
-            </div>
-            <div className="flex gap-1.5">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="w-2 h-2 rounded-full animate-bounce" style={{ background: "#1e1240", animationDelay: `${i * 0.2}s` }} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── DELIVERED ── */}
-        {stage === "delivered" && (
-          <div className="flex flex-col items-center text-center gap-2 py-2">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2" style={{ background: "#1e1240" }}>
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 14l5 5 11-11" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </div>
-            <p className="text-[#0f0f0f] font-extrabold text-2xl">Cash delivered!</p>
-            <p className="text-slate-500 text-sm mb-2">Your {formatNaira(finalAmt)} has been delivered</p>
-            <div className="rounded-2xl p-4 w-full space-y-2 text-sm mt-2" style={{ background: "#f5f0eb" }}>
-              {[["Amount", formatNaira(finalAmt)], ["Delivered at", "Just now"], ["Rider", "Chidi Okafor"], ["Status", "✓ Completed"]].map(([l, v]) => (
-                <div key={l} className="flex justify-between">
-                  <span className="text-slate-400">{l}</span>
-                  <span className="text-[#0f0f0f] font-medium">{v}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={handleDone}
-              className="w-full font-bold py-3.5 rounded-xl text-white hover:opacity-90 transition-opacity mt-4"
-              style={{ background: "#1e1240" }}>
-              Back to dashboard
-            </button>
-          </div>
-        )}
       </div>
-
-      {showPin && (
-        <PinModal
-          title="Confirm request"
-          subtitle="Enter your 4-digit PIN to dispatch your rider"
-          loading={pinLoading}
-          error={pinError}
-          onConfirm={handlePinConfirm}
-          onCancel={() => setShowPin(false)}
-        />
-      )}
     </div>
   );
 }

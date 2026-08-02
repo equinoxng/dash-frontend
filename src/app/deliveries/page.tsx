@@ -2,11 +2,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
-import { formatNaira, listRequests, confirmDelivery, type CashRequest } from "@/lib/requests";
+import { formatNaira, listRequests, SEND_FLOW_AVAILABLE, type CashRequest } from "@/lib/requests";
 import { getWallet } from "@/lib/wallet";
 import { getSession } from "@/lib/session";
-import { ApiError } from "@/lib/api";
-import PinModal from "@/components/PinModal";
 
 const STATUS_LABEL: Record<CashRequest["status"], string> = {
   PENDING: "Pending",
@@ -27,9 +25,6 @@ const formatDate = (iso: string) =>
 export default function DeliveriesInProgress() {
   const [deliveries, setDeliveries] = useState<CashRequest[]>([]);
   const [escrowBalance, setEscrowBalance] = useState(0);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [pinLoading, setPinLoading] = useState(false);
-  const [pinError, setPinError] = useState("");
 
   const refresh = useCallback(() => {
     const session = getSession();
@@ -43,23 +38,6 @@ export default function DeliveriesInProgress() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
-
-  const handlePinConfirm = async (pin: string) => {
-    const session = getSession();
-    if (!session || !confirmingId) return;
-
-    setPinError("");
-    setPinLoading(true);
-    try {
-      await confirmDelivery(session.token, confirmingId, pin);
-      setPinLoading(false);
-      setConfirmingId(null);
-      refresh();
-    } catch (err) {
-      setPinLoading(false);
-      setPinError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
-    }
-  };
 
   return (
     <div className="min-h-screen" style={{ background: "#f5f0eb" }}>
@@ -110,9 +88,10 @@ export default function DeliveriesInProgress() {
                   </div>
                 </div>
                 {d.status === "IN_PROGRESS" && (
-                  <button onClick={() => { setPinError(""); setConfirmingId(d.requestId); }}
-                    className="w-full font-semibold text-sm py-2.5 rounded-xl text-white hover:opacity-90 transition-opacity"
-                    style={{ background: "#1e1240" }}>
+                  <button disabled={!SEND_FLOW_AVAILABLE}
+                    title={SEND_FLOW_AVAILABLE ? undefined : "Delivery confirmation is being rebuilt on Dash's new escrow engine — check back soon"}
+                    className="w-full font-semibold text-sm py-2.5 rounded-xl text-white transition-opacity"
+                    style={{ background: "#1e1240", opacity: SEND_FLOW_AVAILABLE ? 1 : 0.5, cursor: SEND_FLOW_AVAILABLE ? "pointer" : "not-allowed" }}>
                     Confirm delivery
                   </button>
                 )}
@@ -121,17 +100,6 @@ export default function DeliveriesInProgress() {
           </div>
         )}
       </div>
-
-      {confirmingId && (
-        <PinModal
-          title="Confirm delivery"
-          subtitle="Enter your PIN to release escrow and complete this delivery"
-          loading={pinLoading}
-          error={pinError}
-          onConfirm={handlePinConfirm}
-          onCancel={() => setConfirmingId(null)}
-        />
-      )}
     </div>
   );
 }
