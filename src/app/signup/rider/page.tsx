@@ -15,13 +15,13 @@ function Field({
 }: { label: string; type?: string; placeholder?: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+      <label className="text-sm font-medium text-slate-700 mb-1.5 block">{label}</label>
       <input
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition"
+        className="dash-input"
       />
     </div>
   );
@@ -65,40 +65,40 @@ export default function RiderSignup() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-4 py-12">
       <Link href="/" className="mb-8">
         <Image src="/logo.png" alt="Dash by Equinox" width={90} height={36} priority />
       </Link>
 
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+      <div className="w-full max-w-md dash-card p-8">
         {/* Step indicator */}
         <div className="flex items-center gap-2 mb-8">
           {steps.map((s, i) => (
             <div key={s} className="flex items-center gap-2 flex-1">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i <= step ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400"}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i <= step ? "bg-ink text-white" : "bg-accent-light text-ink-soft"}`}>
                 {i < step ? "✓" : i + 1}
               </div>
-              <span className={`text-xs font-medium hidden sm:block ${i === step ? "text-slate-900" : "text-slate-400"}`}>{s}</span>
-              {i < steps.length - 1 && <div className={`h-px flex-1 ${i < step ? "bg-slate-900" : "bg-slate-100"}`} />}
+              <span className={`text-xs font-medium hidden sm:block ${i === step ? "text-ink" : "text-ink-soft"}`}>{s}</span>
+              {i < steps.length - 1 && <div className={`h-px flex-1 ${i < step ? "bg-ink" : "bg-line"}`} />}
             </div>
           ))}
         </div>
 
         {step === 0 && (
           <>
-            <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Join as a rider</h1>
-            <p className="text-slate-500 text-sm mb-6">Earn money delivering cash across the city.</p>
+            <h1 className="text-2xl font-extrabold text-ink mb-1">Join as a rider</h1>
+            <p className="text-ink-soft text-sm mb-6">Earn money delivering cash across the city.</p>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="First name" placeholder="Chukwuemeka" value={form.firstName} onChange={(v) => update("firstName", v)} />
                 <Field label="Last name" placeholder="Eze" value={form.lastName} onChange={(v) => update("lastName", v)} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Phone number</label>
+                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Phone number</label>
                 <div className="flex gap-2">
-                  <span className="flex items-center px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500 whitespace-nowrap">🇳🇬 +234</span>
+                  <span className="dash-input flex items-center gap-1 w-auto text-ink-soft whitespace-nowrap">🇳🇬 +234</span>
                   <input type="tel" placeholder="0801 234 5678" value={form.phone} onChange={(e) => update("phone", e.target.value)}
-                    className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                    className="dash-input flex-1" />
                 </div>
               </div>
               <Field label="Email address" type="email" placeholder="chukwu@email.com" value={form.email} onChange={(v) => update("email", v)} />
@@ -109,11 +109,11 @@ export default function RiderSignup() {
 
         {step === 1 && (
           <>
-            <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Vehicle & documents</h1>
-            <p className="text-slate-500 text-sm mb-6">We need this to verify and onboard you.</p>
+            <h1 className="text-2xl font-extrabold text-ink mb-1">Vehicle & documents</h1>
+            <p className="text-ink-soft text-sm mb-6">We need this to verify and onboard you.</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Vehicle type</label>
+                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Vehicle type</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: "Bicycle", icon: "🚲" },
@@ -123,10 +123,10 @@ export default function RiderSignup() {
                     <button
                       key={v.label}
                       onClick={() => update("vehicleType", v.label)}
-                      className={`py-3 px-2 rounded-xl border-2 text-center transition-colors ${form.vehicleType === v.label ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}
+                      className={`py-3 px-2 rounded-xl border-2 text-center transition-colors ${form.vehicleType === v.label ? "border-ink bg-accent-light" : "border-line hover:border-ink"}`}
                     >
                       <span className="block text-xl mb-1">{v.icon}</span>
-                      <span className="text-xs font-medium text-slate-700">{v.label}</span>
+                      <span className="text-xs font-medium text-ink">{v.label}</span>
                     </button>
                   ))}
                 </div>
@@ -144,13 +144,12 @@ export default function RiderSignup() {
 
         {step === 2 && (
           <>
-            <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Bank details</h1>
-            <p className="text-slate-500 text-sm mb-6">Where we'll send your weekly earnings.</p>
+            <h1 className="text-2xl font-extrabold text-ink mb-1">Bank details</h1>
+            <p className="text-ink-soft text-sm mb-6">Where we'll send your weekly earnings.</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Bank name</label>
-                <select value={form.bankName} onChange={(e) => update("bankName", e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 transition bg-white">
+                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Bank name</label>
+                <select value={form.bankName} onChange={(e) => update("bankName", e.target.value)} className="dash-input">
                   <option value="">Select bank</option>
                   {["Access Bank","GTBank","First Bank","UBA","Zenith Bank","Kuda","OPay","Moniepoint"].map((b) => (
                     <option key={b} value={b}>{b}</option>
@@ -168,33 +167,33 @@ export default function RiderSignup() {
         )}
 
         {error && (
-          <p className="text-red-500 text-xs bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-4">{error}</p>
+          <p className="text-red-600 text-xs bg-danger-light border border-red-100 rounded-lg px-3 py-2 mt-4">{error}</p>
         )}
 
         <div className="flex gap-3 mt-6">
           {step > 0 && (
-            <button onClick={() => setStep(step - 1)} disabled={loading} className="flex-1 border border-slate-200 text-slate-700 font-semibold py-3.5 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-40">
+            <button onClick={() => setStep(step - 1)} disabled={loading} className="flex-1 border border-line text-ink font-semibold py-3.5 rounded-xl hover:bg-accent-light transition-colors disabled:opacity-40">
               Back
             </button>
           )}
           <button
             onClick={() => step < 2 ? setStep(step + 1) : handleSubmit()}
             disabled={loading}
-            className="flex-1 bg-slate-900 text-white font-semibold py-3.5 rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="dash-btn dash-btn-ink flex-1 !py-3.5"
           >
             {step === 2 ? (loading ? "Submitting…" : "Submit application") : "Continue"}
           </button>
         </div>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-ink-soft">
           Already have an account?{" "}
-          <Link href="/signin" className="font-semibold text-slate-900 hover:underline">Sign in</Link>
+          <Link href="/signin" className="font-semibold text-ink hover:underline">Sign in</Link>
         </p>
       </div>
 
-      <p className="mt-6 text-xs text-slate-400">
+      <p className="mt-6 text-xs text-ink-soft">
         Looking to request cash?{" "}
-        <Link href="/signup" className="underline hover:text-slate-600">Create a user account</Link>
+        <Link href="/signup" className="underline hover:text-ink">Create a user account</Link>
       </p>
     </div>
   );

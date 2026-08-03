@@ -40,58 +40,57 @@ export default function DeliveriesInProgress() {
   useEffect(() => { refresh(); }, [refresh]);
 
   return (
-    <div className="min-h-screen" style={{ background: "#f5f0eb" }}>
-      <nav className="sticky top-0 z-40 border-b px-4" style={{ background: "#f5f0eb", borderColor: "#e0d9d0" }}>
+    <div className="min-h-screen bg-cream">
+      <nav className="sticky top-0 z-40 border-b-2 border-ink px-4 bg-cream">
         <div className="max-w-2xl mx-auto h-16 flex items-center gap-4">
-          <Link href="/dashboard" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "white", border: "1px solid #e0d9d0" }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="#0f0f0f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <Link href="/dashboard" className="w-8 h-8 rounded-full bg-white border border-line flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="#1e1240" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </Link>
           <Link href="/dashboard"><Image src="/logo.png" alt="Dash" width={72} height={28} /></Link>
         </div>
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-        <h1 className="text-2xl font-extrabold text-[#0f0f0f]">Deliveries in progress</h1>
+        <h1 className="text-2xl font-extrabold text-ink">Deliveries in progress</h1>
 
-        {/* Escrow summary */}
-        <div className="rounded-3xl px-6 py-5" style={{ background: "#1e1240" }}>
-          <span className="text-xs font-medium tracking-wide uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>In escrow</span>
+        {/* Escrow summary — brand moment */}
+        <div className="dash-card !bg-ink !border-ink px-6 py-5">
+          <span className="text-xs font-bold tracking-wide uppercase text-white/40">In escrow</span>
           <p className="text-white font-extrabold text-3xl tracking-tight mt-1">{formatNaira(escrowBalance)}</p>
-          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>
+          <p className="text-xs mt-1 text-white/50">
             {deliveries.length} {deliveries.length === 1 ? "delivery" : "deliveries"} in progress
           </p>
         </div>
 
         {deliveries.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#ede8fb" }}>
+            <div className="w-14 h-14 rounded-full bg-accent-light flex items-center justify-center">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5b3fc4" strokeWidth="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
             </div>
-            <p className="text-[#0f0f0f] font-semibold">No deliveries in progress</p>
-            <p className="text-slate-400 text-sm">Requests awaiting rider handoff will show up here</p>
+            <p className="text-ink font-semibold">No deliveries in progress</p>
+            <p className="text-ink-soft text-sm">Requests awaiting rider handoff will show up here</p>
           </div>
         ) : (
           <div className="space-y-2">
             {deliveries.map((d) => (
-              <div key={d.requestId} className="rounded-2xl px-4 py-4 border space-y-3" style={{ background: "white", borderColor: "#e0d9d0" }}>
+              <div key={d.requestId} className="rounded-2xl px-4 py-4 border border-line bg-white space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "#ede8fb" }}>
+                  <div className="w-10 h-10 rounded-full bg-accent-light flex items-center justify-center shrink-0">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b3fc4" strokeWidth="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[#0f0f0f] text-sm font-semibold">{d.type === "RECEIVE_CASH" ? "Cash delivery" : "Cash sent"}</p>
-                    <p className="text-slate-400 text-xs">{formatDate(d.createdAt)} · {d.requestId}</p>
+                    <p className="text-ink text-sm font-semibold">{d.type === "RECEIVE_CASH" ? "Cash delivery" : "Cash sent"}</p>
+                    <p className="text-ink-soft text-xs">{formatDate(d.createdAt)} · {d.requestId}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[#0f0f0f] font-bold text-sm">{formatNaira(d.totalAmount)}</p>
-                    <p className="text-xs font-medium" style={{ color: "#5b3fc4" }}>{STATUS_LABEL[d.status]}</p>
+                    <p className="text-ink font-bold text-sm">{formatNaira(d.totalAmount)}</p>
+                    <p className="text-xs font-medium text-accent">{STATUS_LABEL[d.status]}</p>
                   </div>
                 </div>
                 {d.status === "IN_PROGRESS" && (
                   <button disabled={!SEND_FLOW_AVAILABLE}
                     title={SEND_FLOW_AVAILABLE ? undefined : "Delivery confirmation is being rebuilt on Dash's new escrow engine — check back soon"}
-                    className="w-full font-semibold text-sm py-2.5 rounded-xl text-white transition-opacity"
-                    style={{ background: "#1e1240", opacity: SEND_FLOW_AVAILABLE ? 1 : 0.5, cursor: SEND_FLOW_AVAILABLE ? "pointer" : "not-allowed" }}>
+                    className="dash-btn dash-btn-ink w-full !py-2.5 text-sm">
                     Confirm delivery
                   </button>
                 )}

@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { logout, getProfile, type UserProfile } from "@/lib/auth";
+import { logout, getProfile, uploadProfilePhoto, deleteProfilePhoto, type UserProfile } from "@/lib/auth";
 import { getSession, clearSession } from "@/lib/session";
+import { ApiError } from "@/lib/api";
 
 const MENU = [
   {
@@ -36,6 +37,9 @@ const MENU = [
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const session = getSession();
@@ -43,6 +47,29 @@ export default function ProfilePage() {
     getProfile(session.token).then(setProfile).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handlePhotoSelect = (file: File) => {
+    const session = getSession();
+    if (!session) return;
+    setPhotoError("");
+    setPhotoLoading(true);
+    const { promise } = uploadProfilePhoto(session.token, file, () => {});
+    promise
+      .then(setProfile)
+      .catch((err) => setPhotoError(err instanceof ApiError ? err.message : "Could not upload photo. Please try again."))
+      .finally(() => setPhotoLoading(false));
+  };
+
+  const handlePhotoRemove = () => {
+    const session = getSession();
+    if (!session) return;
+    setPhotoError("");
+    setPhotoLoading(true);
+    deleteProfilePhoto(session.token)
+      .then(setProfile)
+      .catch((err) => setPhotoError(err instanceof ApiError ? err.message : "Could not remove photo. Please try again."))
+      .finally(() => setPhotoLoading(false));
+  };
 
   const handleLogout = async () => {
     const session = getSession();
@@ -60,12 +87,12 @@ export default function ProfilePage() {
   const initials = profile ? `${profile.firstName[0] || ""}${profile.lastName[0] || ""}`.toUpperCase() : "";
 
   return (
-    <div className="min-h-screen" style={{ background: "#f5f0eb" }}>
+    <div className="min-h-screen bg-cream">
       {/* Nav */}
-      <nav className="sticky top-0 z-40 border-b px-4" style={{ background: "#f5f0eb", borderColor: "#e0d9d0" }}>
+      <nav className="sticky top-0 z-40 border-b-2 border-ink px-4 bg-cream">
         <div className="max-w-2xl mx-auto h-16 flex items-center gap-4">
-          <Link href="/dashboard" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "white", border: "1px solid #e0d9d0" }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="#0f0f0f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <Link href="/dashboard" className="w-8 h-8 rounded-full bg-white border border-line flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="#1e1240" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </Link>
           <Image src="/logo.png" alt="Dash" width={72} height={28} />
         </div>
@@ -75,21 +102,61 @@ export default function ProfilePage() {
 
         {/* Avatar + name */}
         <div className="flex flex-col items-center text-center pt-2 pb-4">
-          <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-extrabold mb-3" style={{ background: "#1e1240" }}>
-            {initials || "—"}
+          <div className="relative mb-3">
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              disabled={photoLoading}
+              className="w-20 h-20 rounded-full bg-ink flex items-center justify-center text-white text-2xl font-extrabold overflow-hidden disabled:opacity-60"
+              aria-label="Change profile photo"
+            >
+              {profile?.profilePhotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.profilePhotoUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                initials || "—"
+              )}
+            </button>
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              disabled={photoLoading}
+              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-accent border-2 border-cream flex items-center justify-center text-white disabled:opacity-60"
+              aria-label="Change profile photo"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+              </svg>
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handlePhotoSelect(file);
+                e.target.value = "";
+              }}
+            />
           </div>
-          <h1 className="text-xl font-extrabold text-[#0f0f0f]">{profile?.fullName || "Loading…"}</h1>
-          <p className="text-slate-400 text-sm mt-0.5">{profile?.phoneNumber}</p>
-          <p className="text-slate-400 text-sm">{profile?.email}</p>
+
+          {photoError && <p className="text-red-600 text-xs mb-2">{photoError}</p>}
+          {profile?.profilePhotoUrl && !photoLoading && (
+            <button onClick={handlePhotoRemove} className="text-xs text-ink-soft hover:text-red-500 mb-2 -mt-1">
+              Remove photo
+            </button>
+          )}
+
+          <h1 className="text-xl font-extrabold text-ink">{profile?.fullName || "Loading…"}</h1>
+          <p className="text-ink-soft text-sm mt-0.5">{profile?.phoneNumber}</p>
+          <p className="text-ink-soft text-sm">{profile?.email}</p>
           {profile && (profile.verified ? (
-            <span className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: "#ede8fb", color: "#5b3fc4" }}>
+            <span className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-accent-light text-accent">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
               Verified account
             </span>
           ) : (
             <Link href="/profile/verify-identity"
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold hover:underline"
-              style={{ background: "#fff7ed", color: "#c2410c" }}>
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold hover:underline bg-amber-50 text-amber-700">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               Verify your identity
             </Link>
@@ -99,14 +166,13 @@ export default function ProfilePage() {
         {/* Menu sections */}
         {MENU.map((section) => (
           <div key={section.section}>
-            <p className="text-slate-400 text-xs uppercase tracking-widest mb-2 px-1">{section.section}</p>
-            <div className="rounded-2xl overflow-hidden border" style={{ background: "white", borderColor: "#e0d9d0" }}>
+            <p className="dash-label mb-2 px-1">{section.section}</p>
+            <div className="rounded-2xl overflow-hidden border border-line bg-white">
               {section.items.map((item, i) => (
                 <Link key={item.label} href={item.href}
-                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#f5f0eb] transition-colors"
-                  style={{ borderTop: i > 0 ? "1px solid #e0d9d0" : "none" }}>
-                  <span className="text-slate-400">{item.icon}</span>
-                  <span className="flex-1 text-sm font-medium text-[#0f0f0f]">{item.label}</span>
+                  className={`flex items-center gap-3 px-4 py-3.5 hover:bg-cream transition-colors ${i > 0 ? "border-t border-line" : ""}`}>
+                  <span className="text-ink-soft">{item.icon}</span>
+                  <span className="flex-1 text-sm font-medium text-ink">{item.label}</span>
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 10l4-3-4-3" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </Link>
               ))}
@@ -116,12 +182,11 @@ export default function ProfilePage() {
 
         {/* Logout */}
         <button onClick={handleLogout}
-          className="w-full font-semibold py-3.5 rounded-2xl text-sm transition-colors hover:opacity-80"
-          style={{ background: "white", color: "#ef4444", border: "1px solid #fecaca" }}>
+          className="w-full font-semibold py-3.5 rounded-2xl text-sm transition-colors hover:bg-red-50 bg-white text-red-500 border border-red-200">
           Log out
         </button>
 
-        <p className="text-center text-xs text-slate-400 pb-4">Dash by Equinox · v1.0.0</p>
+        <p className="text-center text-xs text-ink-soft pb-4">Dash by Equinox · v1.0.0</p>
       </div>
     </div>
   );

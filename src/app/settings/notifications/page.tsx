@@ -15,8 +15,7 @@ const TOGGLES: { key: keyof NotificationPreferences; label: string; description:
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className="w-11 h-6 rounded-full relative transition-colors shrink-0"
-      style={{ background: on ? "#1e1240" : "#e0d9d0" }}>
+      className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${on ? "bg-ink" : "bg-line"}`}>
       <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
         style={{ transform: on ? "translateX(22px)" : "translateX(2px)" }} />
     </button>
@@ -52,27 +51,26 @@ export default function NotificationSettings() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "#f5f0eb" }}>
-      <nav className="sticky top-0 z-40 border-b px-4" style={{ background: "#f5f0eb", borderColor: "#e0d9d0" }}>
+    <div className="min-h-screen bg-cream">
+      <nav className="sticky top-0 z-40 border-b-2 border-ink px-4 bg-cream">
         <div className="max-w-2xl mx-auto h-16 flex items-center gap-4">
-          <Link href="/profile" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "white", border: "1px solid #e0d9d0" }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="#0f0f0f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <Link href="/profile" className="w-8 h-8 rounded-full bg-white border border-line flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="#1e1240" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </Link>
           <Link href="/dashboard"><Image src="/logo.png" alt="Dash" width={72} height={28} /></Link>
         </div>
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-        <h1 className="text-2xl font-extrabold text-[#0f0f0f]">Notifications</h1>
+        <h1 className="text-2xl font-extrabold text-ink">Notifications</h1>
 
         {prefs && (
-          <div className="rounded-2xl overflow-hidden border" style={{ background: "white", borderColor: "#e0d9d0" }}>
+          <div className="rounded-2xl overflow-hidden border border-line bg-white">
             {TOGGLES.map((t, i) => (
-              <div key={t.key} className="flex items-center gap-3 px-4 py-4"
-                style={{ borderTop: i > 0 ? "1px solid #e0d9d0" : "none" }}>
+              <div key={t.key} className={`flex items-center gap-3 px-4 py-4 ${i > 0 ? "border-t border-line" : ""}`}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#0f0f0f]">{t.label}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{t.description}</p>
+                  <p className="text-sm font-semibold text-ink">{t.label}</p>
+                  <p className="text-xs text-ink-soft mt-0.5">{t.description}</p>
                 </div>
                 <Toggle on={prefs[t.key]} onClick={() => toggle(t.key)} />
               </div>
@@ -80,7 +78,7 @@ export default function NotificationSettings() {
           </div>
         )}
 
-        {saving && <p className="text-slate-400 text-xs px-1">Saving…</p>}
+        {saving && <p className="text-ink-soft text-xs px-1">Saving…</p>}
       </div>
     </div>
   );

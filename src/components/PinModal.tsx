@@ -53,21 +53,21 @@ export default function PinModal({ title = "Enter your PIN", subtitle = "Confirm
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
-      <div className="w-full max-w-md rounded-t-3xl p-6 pb-10" style={{ background: "white" }}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+      <div className="w-full max-w-md bg-white rounded-t-3xl border-t-2 border-x-2 border-ink p-6 pb-10">
         {/* Handle */}
-        <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: "#e0d9d0" }} />
+        <div className="w-10 h-1 rounded-full mx-auto mb-5 bg-line" />
 
         {/* Lock icon */}
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#ede8fb" }}>
+        <div className="w-12 h-12 rounded-2xl bg-accent-light flex items-center justify-center mx-auto mb-4">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5b3fc4" strokeWidth="2" strokeLinecap="round">
             <rect x="3" y="11" width="18" height="11" rx="2"/>
             <path d="M7 11V7a5 5 0 0110 0v4"/>
           </svg>
         </div>
 
-        <h2 className="text-xl font-extrabold text-[#0f0f0f] text-center mb-1">{title}</h2>
-        <p className="text-slate-400 text-sm text-center mb-6">{subtitle}</p>
+        <h2 className="text-xl font-extrabold text-ink text-center mb-1">{title}</h2>
+        <p className="text-ink-soft text-sm text-center mb-6">{subtitle}</p>
 
         {/* PIN inputs */}
         <div className="flex gap-3 justify-center mb-4" onPaste={handlePaste}>
@@ -79,18 +79,13 @@ export default function PinModal({ title = "Enter your PIN", subtitle = "Confirm
               onChange={e => handleChange(i, e.target.value)}
               onKeyDown={e => handleKeyDown(i, e)}
               disabled={loading}
-              className="w-14 h-16 text-center text-2xl font-bold border-2 rounded-2xl focus:outline-none transition-all"
-              style={{
-                borderColor: digit ? "#1e1240" : error ? "#ef4444" : "#e0d9d0",
-                background: digit ? "#f5f0ff" : "white",
-                color: "#0f0f0f",
-              }}
+              className={`dash-otp-box w-14 h-16 text-center text-2xl font-bold text-ink focus:outline-none transition-all ${digit ? "filled" : ""} ${error ? "error" : ""}`}
             />
           ))}
         </div>
 
         {error && (
-          <p className="text-red-500 text-xs text-center bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">{error}</p>
+          <p className="text-red-600 text-xs text-center bg-danger-light border border-red-100 rounded-lg px-3 py-2 mb-4">{error}</p>
         )}
 
         {loading && (
@@ -103,8 +98,7 @@ export default function PinModal({ title = "Enter your PIN", subtitle = "Confirm
         )}
 
         <button onClick={onCancel} disabled={loading}
-          className="w-full text-sm font-medium py-3 rounded-xl transition-colors hover:opacity-70"
-          style={{ color: "#94a3b8" }}>
+          className="w-full text-sm font-medium py-3 rounded-xl transition-colors text-ink-soft hover:text-ink">
           Cancel
         </button>
       </div>

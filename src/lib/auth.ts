@@ -8,8 +8,12 @@ const ROLE_PATH: Record<Role, string> = {
   merchant: "merchants",
 };
 
+export type OtpRequestResponse = {
+  whatsappNumber: boolean;
+};
+
 export function requestOtp(role: Role, phoneNumber: string) {
-  return apiFetch(`/api/${ROLE_PATH[role]}/otp/request`, {
+  return apiFetch<OtpRequestResponse>(`/api/${ROLE_PATH[role]}/otp/request`, {
     method: "POST",
     body: JSON.stringify({ phoneNumber }),
   });
@@ -181,6 +185,7 @@ export type UserProfile = {
   state: string | null;
   phoneVerified: boolean;
   verified: boolean;
+  profilePhotoUrl: string | null;
 };
 
 export function getProfile(token: string) {
@@ -277,4 +282,39 @@ export function submitKyc(
   });
 
   return { promise, abort: () => xhr.abort() };
+}
+
+export function uploadProfilePhoto(token: string, file: File, onProgress: (percent: number) => void) {
+  const xhr = new XMLHttpRequest();
+
+  const promise = new Promise<UserProfile>((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText));
+      } else {
+        reject(new ApiError(xhr.responseText || "Upload failed. Please try again."));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError("Upload failed. Please try again."));
+    xhr.onabort = () => reject(new ApiError("Upload cancelled."));
+
+    xhr.open("POST", `${API_BASE_URL}/api/users/profile-photo`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.send(formData);
+  });
+
+  return { promise, abort: () => xhr.abort() };
+}
+
+export function deleteProfilePhoto(token: string) {
+  return apiFetch<UserProfile>("/api/users/profile-photo", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
