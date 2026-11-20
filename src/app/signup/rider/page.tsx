@@ -1,28 +1,77 @@
 "use client";
+
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { registerRider, VEHICLE_TYPES, uploadIdentityDocument, deleteIdentityDocument } from "@/lib/auth";
+import AuthShell from "@/components/auth/AuthShell";
+import PhoneField from "@/components/auth/PhoneField";
+import FileUploadField from "@/components/FileUploadField";
+import Notice from "@/components/dash/Notice";
+import {
+  deleteIdentityDocument,
+  registerRider,
+  uploadIdentityDocument,
+  VEHICLE_TYPES,
+  type UploadedFile,
+} from "@/lib/auth";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
-import FileUploadField from "@/components/FileUploadField";
 
-const steps = ["Personal info", "Vehicle & docs", "Bank details"];
+const STEPS = ["Personal", "Vehicle & ID", "Bank"];
 
 function Field({
-  label, type = "text", placeholder, value, onChange,
-}: { label: string; type?: string; placeholder?: string; value: string; onChange: (v: string) => void }) {
+  label,
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  autoComplete,
+  inputMode,
+  maxLength,
+}: {
+  label: string;
+  type?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete?: string;
+  inputMode?: "numeric" | "tel" | "email" | "text";
+  maxLength?: number;
+}) {
+  const id = `rider-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
     <div>
-      <label className="text-sm font-medium text-slate-700 mb-1.5 block">{label}</label>
+      <label className="field-label" htmlFor={id}>{label}</label>
       <input
+        id={id}
         type={type}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        maxLength={maxLength}
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="dash-input"
+        onChange={(event) => onChange(event.target.value)}
+        className="field"
       />
+    </div>
+  );
+}
+
+function StepProgress({ current }: { current: number }) {
+  return (
+    <div className="mb-8">
+      <div className="flex gap-1.5">
+        {STEPS.map((_, index) => (
+          <div key={STEPS[index]} className={`h-1 flex-1 rounded-full ${index <= current ? "bg-violet" : "bg-line"}`} />
+        ))}
+      </div>
+      <div className="mt-2.5 flex justify-between text-[9px] font-bold uppercase tracking-[0.12em]">
+        {STEPS.map((step, index) => (
+          <span key={step} className={index === current ? "text-violet-deep" : "text-ink-soft/60"}>
+            {step}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -31,27 +80,84 @@ export default function RiderSignup() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    firstName: "", lastName: "", phone: "", email: "", password: "",
-    vehicleType: "", plateNumber: "", nin: "",
-    bankName: "", accountNumber: "", accountName: "",
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    password: "",
+    vehicleType: "",
+    plateNumber: "",
+    nin: "",
+    bankName: "",
+    accountNumber: "",
+    accountName: "",
   });
+  const [identityDocument, setIdentityDocument] = useState<UploadedFile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const update = (key: keyof typeof form, value: string) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    setError("");
+  };
 
-  const handleSubmit = async () => {
+  const handlePersonal = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
+      setError("Enter your first name, last name and email address.");
+      return;
+    }
+    if (form.phone.replace(/\D/g, "").length < 10) {
+      setError("Enter a valid Nigerian phone number.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    setError("");
+    setStep(1);
+  };
+
+  const handleDocuments = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.vehicleType) {
+      setError("Choose your vehicle type.");
+      return;
+    }
+    if (!form.plateNumber.trim()) {
+      setError("Enter your vehicle plate number.");
+      return;
+    }
+    if (form.nin.length !== 11) {
+      setError("NIN must be exactly 11 digits.");
+      return;
+    }
+    if (!identityDocument) {
+      setError("Upload your NIN slip or government ID to continue.");
+      return;
+    }
+    setError("");
+    setStep(2);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError("");
     try {
       await registerRider({
         phoneNumber: toApiPhone(form.phone),
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
         password: form.password,
         vehicleType: VEHICLE_TYPES[form.vehicleType] || form.vehicleType,
-        vehiclePlateNumber: form.plateNumber,
+        vehiclePlateNumber: form.plateNumber.trim(),
         nin: form.nin,
         bankName: form.bankName,
         bankAccountNumber: form.accountNumber,
@@ -64,137 +170,138 @@ export default function RiderSignup() {
     }
   };
 
+  const meta = [
+    {
+      eyebrow: "Join the network",
+      title: "Ride with Dash.",
+      subtitle: "Move cash across Lagos and earn on every completed delivery.",
+    },
+    {
+      eyebrow: "Verification",
+      title: "Your details.",
+      subtitle: "We need your vehicle details and identity documents to onboard you.",
+    },
+    {
+      eyebrow: "Payouts",
+      title: "Where to pay you.",
+      subtitle: "Add the account where you’d like to receive your weekly earnings.",
+    },
+  ][step];
+
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-4 py-12">
-      <Link href="/" className="mb-8">
-        <Image src="/logo.png" alt="Dash by Equinox" width={90} height={36} priority />
-      </Link>
+    <AuthShell
+      eyebrow={meta.eyebrow}
+      title={meta.title}
+      subtitle={meta.subtitle}
+      wide
+      footer={
+        <>
+          Already have an account?{" "}
+          <Link href="/signin" className="font-semibold text-violet hover:underline">Sign in</Link>
+          <div className="mt-3 flex justify-center gap-4 text-[10px] font-semibold">
+            <Link href="/signup" className="text-ink-soft hover:text-ink">Send cash instead</Link>
+            <Link href="/signup/merchant" className="text-ink-soft hover:text-ink">Register a business</Link>
+          </div>
+        </>
+      }
+    >
+      <StepProgress current={step} />
 
-      <div className="w-full max-w-md dash-card p-8">
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-8">
-          {steps.map((s, i) => (
-            <div key={s} className="flex items-center gap-2 flex-1">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i <= step ? "bg-ink text-white" : "bg-accent-light text-ink-soft"}`}>
-                {i < step ? "✓" : i + 1}
-              </div>
-              <span className={`text-xs font-medium hidden sm:block ${i === step ? "text-ink" : "text-ink-soft"}`}>{s}</span>
-              {i < steps.length - 1 && <div className={`h-px flex-1 ${i < step ? "bg-ink" : "bg-line"}`} />}
-            </div>
-          ))}
+      {error && (
+        <Notice tone="error" className="mb-5">{error}</Notice>
+      )}
+
+      <form onSubmit={handlePersonal} className={`space-y-4 ${step === 0 ? "" : "hidden"}`} aria-hidden={step !== 0}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="First name" placeholder="Chukwuemeka" autoComplete="given-name" value={form.firstName} onChange={(value) => update("firstName", value)} />
+          <Field label="Last name" placeholder="Eze" autoComplete="family-name" value={form.lastName} onChange={(value) => update("lastName", value)} />
         </div>
+        <PhoneField
+          id="rider-phone"
+          value={form.phone}
+          onChange={(value) => update("phone", value)}
+        />
+        <Field label="Email address" type="email" placeholder="chukwu@email.com" autoComplete="email" value={form.email} onChange={(value) => update("email", value)} />
+        <Field label="Password" type="password" placeholder="At least 8 characters" autoComplete="new-password" value={form.password} onChange={(value) => update("password", value)} />
+        <button type="submit" className="btn btn-primary btn-block mt-2">Continue</button>
+      </form>
 
-        {step === 0 && (
-          <>
-            <h1 className="text-2xl font-extrabold text-ink mb-1">Join as a rider</h1>
-            <p className="text-ink-soft text-sm mb-6">Earn money delivering cash across the city.</p>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="First name" placeholder="Chukwuemeka" value={form.firstName} onChange={(v) => update("firstName", v)} />
-                <Field label="Last name" placeholder="Eze" value={form.lastName} onChange={(v) => update("lastName", v)} />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Phone number</label>
-                <div className="flex gap-2">
-                  <span className="dash-input flex items-center gap-1 w-auto text-ink-soft whitespace-nowrap">🇳🇬 +234</span>
-                  <input type="tel" placeholder="0801 234 5678" value={form.phone} onChange={(e) => update("phone", e.target.value)}
-                    className="dash-input flex-1" />
-                </div>
-              </div>
-              <Field label="Email address" type="email" placeholder="chukwu@email.com" value={form.email} onChange={(v) => update("email", v)} />
-              <Field label="Password" type="password" placeholder="At least 8 characters" value={form.password} onChange={(v) => update("password", v)} />
-            </div>
-          </>
-        )}
+      <form onSubmit={handleDocuments} className={`space-y-4 ${step === 1 ? "" : "hidden"}`} aria-hidden={step !== 1}>
+        <div>
+          <span className="field-label">Vehicle type</span>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "Bicycle", icon: "🚲" },
+              { label: "Motorcycle", icon: "🏍️" },
+              { label: "Car", icon: "🚗" },
+            ].map((vehicle) => (
+              <button
+                key={vehicle.label}
+                type="button"
+                onClick={() => update("vehicleType", vehicle.label)}
+                className={`flex flex-col items-center rounded-2xl border px-2 py-3 text-[11px] font-semibold transition-colors ${
+                  form.vehicleType === vehicle.label
+                    ? "border-violet bg-violet-soft text-violet-deep"
+                    : "border-line-strong bg-white text-ink-soft hover:border-ink"
+                }`}
+              >
+                <span className="mb-1 text-xl">{vehicle.icon}</span>
+                {vehicle.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Field label="Plate number" placeholder="ABC 123 XY" value={form.plateNumber} onChange={(value) => update("plateNumber", value)} />
+        <Field label="NIN" placeholder="12345678901" inputMode="numeric" maxLength={11} value={form.nin} onChange={(value) => update("nin", value.replace(/\D/g, "").slice(0, 11))} />
+        <FileUploadField
+          label="NIN slip or government ID"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          upload={(file, onProgress) => uploadIdentityDocument(toApiPhone(form.phone), file, onProgress)}
+          onRemove={() => deleteIdentityDocument(toApiPhone(form.phone))}
+          onUploaded={setIdentityDocument}
+        />
+        {identityDocument && <Notice tone="success">Your ID has been uploaded securely.</Notice>}
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={() => setStep(0)} className="btn btn-outline flex-1">Back</button>
+          <button type="submit" className="btn btn-primary flex-1">Continue</button>
+        </div>
+      </form>
 
-        {step === 1 && (
-          <>
-            <h1 className="text-2xl font-extrabold text-ink mb-1">Vehicle & documents</h1>
-            <p className="text-ink-soft text-sm mb-6">We need this to verify and onboard you.</p>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Vehicle type</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: "Bicycle", icon: "🚲" },
-                    { label: "Motorcycle", icon: "🏍️" },
-                    { label: "Car", icon: "🚗" },
-                  ].map((v) => (
-                    <button
-                      key={v.label}
-                      onClick={() => update("vehicleType", v.label)}
-                      className={`py-3 px-2 rounded-xl border-2 text-center transition-colors ${form.vehicleType === v.label ? "border-ink bg-accent-light" : "border-line hover:border-ink"}`}
-                    >
-                      <span className="block text-xl mb-1">{v.icon}</span>
-                      <span className="text-xs font-medium text-ink">{v.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <Field label="Plate number" placeholder="ABC 123 XY" value={form.plateNumber} onChange={(v) => update("plateNumber", v)} />
-              <Field label="NIN (National ID Number)" placeholder="12345678901" value={form.nin} onChange={(v) => update("nin", v)} />
-              <FileUploadField
-                label="Government ID"
-                upload={(file, onProgress) => uploadIdentityDocument(toApiPhone(form.phone), file, onProgress)}
-                onRemove={() => deleteIdentityDocument(toApiPhone(form.phone))}
-              />
-            </div>
-          </>
-        )}
-
-        {step === 2 && (
-          <>
-            <h1 className="text-2xl font-extrabold text-ink mb-1">Bank details</h1>
-            <p className="text-ink-soft text-sm mb-6">Where we'll send your weekly earnings.</p>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Bank name</label>
-                <select value={form.bankName} onChange={(e) => update("bankName", e.target.value)} className="dash-input">
-                  <option value="">Select bank</option>
-                  {["Access Bank","GTBank","First Bank","UBA","Zenith Bank","Kuda","OPay","Moniepoint"].map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
-              <Field label="Account number" placeholder="0123456789" value={form.accountNumber} onChange={(v) => update("accountNumber", v)} />
-              <Field label="Account name" placeholder="Auto-filled after verification" value={form.accountName} onChange={(v) => update("accountName", v)} />
-
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700">
-                Your application will be reviewed within 24 hours. We'll send a confirmation to your email once approved.
-              </div>
-            </div>
-          </>
-        )}
-
-        {error && (
-          <p className="text-red-600 text-xs bg-danger-light border border-red-100 rounded-lg px-3 py-2 mt-4">{error}</p>
-        )}
-
-        <div className="flex gap-3 mt-6">
-          {step > 0 && (
-            <button onClick={() => setStep(step - 1)} disabled={loading} className="flex-1 border border-line text-ink font-semibold py-3.5 rounded-xl hover:bg-accent-light transition-colors disabled:opacity-40">
-              Back
-            </button>
-          )}
-          <button
-            onClick={() => step < 2 ? setStep(step + 1) : handleSubmit()}
-            disabled={loading}
-            className="dash-btn dash-btn-ink flex-1 !py-3.5"
+      <form onSubmit={handleSubmit} className={`space-y-4 ${step === 2 ? "" : "hidden"}`} aria-hidden={step !== 2}>
+        <div>
+          <label className="field-label" htmlFor="rider-bank">Bank name</label>
+          <select
+            id="rider-bank"
+            value={form.bankName}
+            onChange={(event) => update("bankName", event.target.value)}
+            className="field"
           >
-            {step === 2 ? (loading ? "Submitting…" : "Submit application") : "Continue"}
+            <option value="">Select bank</option>
+            {["Access Bank", "GTBank", "First Bank", "UBA", "Zenith Bank", "Kuda", "OPay", "Moniepoint"].map((bank) => (
+              <option key={bank} value={bank}>{bank}</option>
+            ))}
+          </select>
+        </div>
+        <Field label="Account number" placeholder="0123456789" inputMode="numeric" maxLength={10} value={form.accountNumber} onChange={(value) => update("accountNumber", value.replace(/\D/g, "").slice(0, 10))} />
+        <Field label="Account name" placeholder="Name on account" value={form.accountName} onChange={(value) => update("accountName", value)} />
+        <Notice tone="info">We’ll review your application and reach out once your account is approved.</Notice>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={() => setStep(1)} disabled={loading} className="btn btn-outline flex-1">Back</button>
+          <button type="submit" disabled={loading} className="btn btn-primary flex-[1.4]">
+            {loading ? (
+              <>
+                <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
+                  <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+                Submitting…
+              </>
+            ) : (
+              "Submit application"
+            )}
           </button>
         </div>
-
-        <p className="mt-6 text-center text-sm text-ink-soft">
-          Already have an account?{" "}
-          <Link href="/signin" className="font-semibold text-ink hover:underline">Sign in</Link>
-        </p>
-      </div>
-
-      <p className="mt-6 text-xs text-ink-soft">
-        Looking to request cash?{" "}
-        <Link href="/signup" className="underline hover:text-ink">Create a user account</Link>
-      </p>
-    </div>
+      </form>
+    </AuthShell>
   );
 }

@@ -6,8 +6,15 @@ import { useRouter } from "next/navigation";
 import { logout, getProfile, uploadProfilePhoto, deleteProfilePhoto, type UserProfile } from "@/lib/auth";
 import { getSession, clearSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
+import LegalDisclaimer from "@/components/dash/LegalDisclaimer";
 
 const MENU = [
+  {
+    section: "Wallet",
+    items: [
+      { label: "Add funds", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>, href: "/fund" },
+    ],
+  },
   {
     section: "Account",
     items: [
@@ -187,6 +194,7 @@ export default function ProfilePage() {
         </button>
 
         <p className="text-center text-xs text-ink-soft pb-4">Dash by Equinox · v1.0.0</p>
+        <LegalDisclaimer className="mx-auto max-w-xl pb-6 text-center" />
       </div>
     </div>
   );

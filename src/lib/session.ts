@@ -26,9 +26,3 @@ export function clearSession() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(SESSION_KEY);
 }
-
-export function markPhoneVerified() {
-  const session = getSession();
-  if (!session) return;
-  saveSession({ ...session, phoneVerified: true });
-}

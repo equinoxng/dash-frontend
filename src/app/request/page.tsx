@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { formatNaira, SEND_FLOW_AVAILABLE } from "@/lib/requests";
 import { getSession } from "@/lib/session";
 import { listAddresses, type DeliveryAddress } from "@/lib/addresses";
-import VerifyPhoneBanner from "@/components/VerifyPhoneBanner";
 
 type Stage = "amount" | "confirm";
 
@@ -41,10 +40,6 @@ export default function RequestCash() {
       <Link href="/dashboard" className="mb-8">
         <Image src="/logo.png" alt="Dash by Equinox" width={100} height={38} priority />
       </Link>
-
-      <div className="w-full max-w-md">
-        <VerifyPhoneBanner />
-      </div>
 
       <div className="w-full max-w-md dash-card p-8">
 

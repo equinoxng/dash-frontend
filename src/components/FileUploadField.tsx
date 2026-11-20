@@ -1,4 +1,6 @@
+/* eslint-disable @next/next/no-img-element -- local blob previews cannot use next/image */
 "use client";
+
 import { useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 
@@ -12,7 +14,13 @@ interface FileUploadFieldProps<T> {
   onUploaded?: (result: T | null) => void;
 }
 
-export default function FileUploadField<T>({ label, accept = "image/*,.pdf", upload, onRemove, onUploaded }: FileUploadFieldProps<T>) {
+export default function FileUploadField<T>({
+  label,
+  accept = "image/*,.pdf",
+  upload,
+  onRemove,
+  onUploaded,
+}: FileUploadFieldProps<T>) {
   const [status, setStatus] = useState<Status>("idle");
   const [fileName, setFileName] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -37,6 +45,7 @@ export default function FileUploadField<T>({ label, accept = "image/*,.pdf", upl
     setStatus("uploading");
     setProgress(0);
     setError("");
+    onUploaded?.(null);
 
     const { promise, abort } = upload(file, setProgress);
     abortRef.current = abort;
@@ -65,17 +74,22 @@ export default function FileUploadField<T>({ label, accept = "image/*,.pdf", upl
   if (status === "idle") {
     return (
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-line rounded-xl cursor-pointer hover:border-ink transition-colors bg-cream">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="mb-2 text-ink-soft"><path d="M12 16V8m0 0l-3 3m3-3l3 3M4 20h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <span className="text-xs text-ink-soft">Upload NIN slip or passport</span>
+        <span className="field-label">{label}</span>
+        <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line-strong bg-paper px-4 py-5 text-center transition-colors hover:border-violet hover:bg-violet-soft/40">
+          <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-violet shadow-soft">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 16V8m0 0-3 3m3-3 3 3M4 20h16" />
+            </svg>
+          </span>
+          <span className="text-[12px] font-semibold text-ink">Choose a file</span>
+          <span className="mt-1 text-[10.5px] text-ink-soft">JPG, PNG, WEBP or PDF</span>
           <input
             ref={inputRef}
             type="file"
             className="hidden"
             accept={accept}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
+            onChange={(event) => {
+              const file = event.target.files?.[0];
               if (file) handleSelect(file);
             }}
           />
@@ -86,35 +100,42 @@ export default function FileUploadField<T>({ label, accept = "image/*,.pdf", upl
 
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-      <div className="relative w-full border border-line rounded-xl p-3 bg-cream flex items-center gap-3">
+      <span className="field-label">{label}</span>
+      <div className="flex min-h-[82px] items-center gap-3 rounded-2xl border border-line-strong bg-paper p-3">
         {previewUrl ? (
-          <img src={previewUrl} alt="Preview" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+          <img src={previewUrl} alt="Selected document preview" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
         ) : (
-          <div className="w-14 h-14 rounded-lg bg-white border border-line flex items-center justify-center shrink-0">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-soft"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-line bg-white text-ink-soft">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6" />
+            </svg>
           </div>
         )}
 
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-ink truncate">{fileName}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12.5px] font-semibold text-ink">{fileName}</p>
           {status === "uploading" && (
-            <div className="mt-1.5 h-1.5 w-full bg-line rounded-full overflow-hidden">
-              <div className="h-full bg-ink transition-all" style={{ width: `${progress}%` }} />
-            </div>
+            <>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line">
+                <div className="h-full rounded-full bg-violet transition-all" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="mt-1 text-[10.5px] text-ink-soft">Uploading… {progress}%</p>
+            </>
           )}
-          {status === "uploading" && <p className="text-xs text-ink-soft mt-1">Uploading… {progress}%</p>}
-          {status === "done" && <p className="text-xs text-emerald-600 mt-1">Uploaded</p>}
-          {status === "error" && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          {status === "done" && <p className="mt-1 text-[10.5px] font-semibold text-success">Uploaded securely</p>}
+          {status === "error" && <p className="mt-1 text-[10.5px] font-semibold text-danger">{error}</p>}
         </div>
 
         <button
           type="button"
           onClick={handleRemove}
           aria-label="Remove file"
-          className="w-7 h-7 rounded-full flex items-center justify-center text-ink-soft hover:bg-accent-light hover:text-accent transition-colors shrink-0"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-danger-soft hover:text-danger"
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+            <path d="m1 1 12 12M13 1 1 13" />
+          </svg>
         </button>
       </div>
     </div>

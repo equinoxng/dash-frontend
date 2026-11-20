@@ -5,8 +5,8 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
 export const metadata: Metadata = {
-  title: "Dash by Equinox",
-  description: "Fast cash delivery at your doorstep",
+  title: "Dash — Cash, delivered",
+  description: "Send money. They receive physical cash at their door.",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Dash" },
   icons: {
@@ -16,15 +16,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: "#f6f1e9",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={geist.variable}>
-      <body className="min-h-screen flex flex-col antialiased">{children}</body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }

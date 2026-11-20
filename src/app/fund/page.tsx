@@ -8,6 +8,7 @@ import { fundWallet } from "@/lib/wallet";
 import { getSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
 import PinModal from "@/components/PinModal";
+import LegalDisclaimer from "@/components/dash/LegalDisclaimer";
 
 type Stage = "amount" | "success";
 
@@ -53,7 +54,7 @@ export default function FundWallet() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-cream">
-      <Link href="/dashboard" className="mb-8">
+      <Link href="/account" className="mb-8">
         <Image src="/logo.png" alt="Dash by Equinox" width={100} height={38} priority />
       </Link>
 
@@ -62,7 +63,7 @@ export default function FundWallet() {
         {stage === "amount" && (
           <>
             <div className="flex items-center gap-3 mb-6">
-              <Link href="/dashboard" className="w-8 h-8 rounded-full bg-accent-light flex items-center justify-center shrink-0">
+              <Link href="/account" className="w-8 h-8 rounded-full bg-accent-light flex items-center justify-center shrink-0">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="#1e1240" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </Link>
               <h1 className="text-xl font-extrabold text-ink">Add funds</h1>
@@ -122,12 +123,14 @@ export default function FundWallet() {
               </div>
             </div>
 
-            <button onClick={() => router.push("/dashboard")} className="dash-btn dash-btn-ink w-full mt-4">
+            <button onClick={() => router.push("/account")} className="dash-btn dash-btn-ink w-full mt-4">
               Back to dashboard
             </button>
           </div>
         )}
       </div>
+
+      <LegalDisclaimer className="mt-5 w-full max-w-md text-center" />
 
       {showPin && (
         <PinModal

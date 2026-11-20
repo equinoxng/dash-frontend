@@ -1,31 +1,5 @@
 import { apiFetch, ApiError, API_BASE_URL } from "./api";
 
-export type Role = "user" | "rider" | "merchant";
-
-const ROLE_PATH: Record<Role, string> = {
-  user: "users",
-  rider: "riders",
-  merchant: "merchants",
-};
-
-export type OtpRequestResponse = {
-  whatsappNumber: boolean;
-};
-
-export function requestOtp(role: Role, phoneNumber: string) {
-  return apiFetch<OtpRequestResponse>(`/api/${ROLE_PATH[role]}/otp/request`, {
-    method: "POST",
-    body: JSON.stringify({ phoneNumber }),
-  });
-}
-
-export function verifyOtp(role: Role, phoneNumber: string, otp: string) {
-  return apiFetch(`/api/${ROLE_PATH[role]}/otp/verify`, {
-    method: "POST",
-    body: JSON.stringify({ phoneNumber, otp }),
-  });
-}
-
 export type UserSignupPayload = {
   phoneNumber: string;
   firstName: string;
@@ -33,6 +7,7 @@ export type UserSignupPayload = {
   email: string;
   password: string;
   pin: string;
+  nin: string;
 };
 
 export function registerUser(payload: UserSignupPayload) {
@@ -186,6 +161,9 @@ export type UserProfile = {
   phoneVerified: boolean;
   verified: boolean;
   profilePhotoUrl: string | null;
+  nin: string | null;
+  identificationImageUrl: string | null;
+  identificationImagePublicId: string | null;
 };
 
 export function getProfile(token: string) {

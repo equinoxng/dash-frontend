@@ -1,172 +1,400 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Dash design tokens — "Okada, brand colors" direction.
-   Kinetic structure (clipped corners, thick ink borders, skewed
-   type) built entirely from the palette already in production —
-   no new hues introduced.
+   Dash design system
+   Shuttlers-inspired: white surfaces, near-black ink and a
+   confident green primary. Rounded cards, tab-like controls and
+   a floating bottom nav keep the cash handoff front and centre.
    ============================================================ */
 @theme {
-  --color-cream: #f5f0eb;
+  --color-paper: #ffffff;
+  --color-cream: #f7f9f7;
   --color-surface: #ffffff;
-  --color-ink: #1e1240;
-  --color-ink-soft: #64748b;
-  --color-accent: #5b3fc4;
-  --color-accent-light: #ede8fb;
-  --color-line: #e0d9d0;
-  --color-danger: #ef4444;
-  --color-danger-light: #fef2f2;
+  --color-ink: #161616;
+  --color-ink-soft: #575a65;
+  --color-violet: #0dac5c;
+  --color-accent: #0dac5c;
+  --color-accent-light: #e9f8f0;
+  --color-violet-soft: #e9f8f0;
+  --color-violet-deep: #087a43;
+  --color-line: #e6e9e6;
+  --color-line-strong: #d3d9d4;
+  --color-success: #087a43;
+  --color-success-soft: #e9f8f0;
+  --color-warning: #96611a;
+  --color-warning-soft: #fcf3e3;
+  --color-danger: #c33b35;
+  --color-danger-soft: #fbeceb;
+  --color-lime: #d9f99d;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+
+  --shadow-soft: 0 1px 2px rgba(22, 22, 22, 0.03), 0 16px 40px -26px rgba(22, 22, 22, 0.22);
+  --shadow-lift: 0 30px 70px -34px rgba(22, 22, 22, 0.36);
 }
 
 :root {
-  --background: var(--color-cream);
+  --background: var(--color-paper);
   --foreground: var(--color-ink);
 }
 
 body {
-  background: var(--color-cream);
+  background: var(--color-paper);
   color: var(--color-ink);
-  font-family: var(--font-geist-sans), Arial, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
   box-sizing: border-box;
 }
 
+::selection {
+  background: var(--color-accent-light);
+  color: var(--color-violet-deep);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-violet);
+  outline-offset: 3px;
+}
+
 /* ============================================================
-   Shared kinetic primitives — reused across every page instead
-   of one-off inline styles.
+   Type
    ============================================================ */
-@layer components {
-  /* Card: white surface, thick ink border, one clipped "sticker" corner. */
-  .dash-card {
-    background: var(--color-surface);
-    border: 2.5px solid var(--color-ink);
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
-  }
-  .dash-card-sm {
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
-  }
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 0.94;
+}
+.eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
 
-  /* Dark bar used atop hero/section cards. */
-  .dash-signbar {
-    background: var(--color-ink);
-    color: #fff;
-    padding: 0.55rem 0.9rem;
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .dash-signbar .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--color-accent);
-    flex-shrink: 0;
-  }
+/* ============================================================
+   Surfaces
+   ============================================================ */
+.app-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 24px;
+  box-shadow: var(--shadow-soft);
+}
+.app-card-flat {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+}
+.app-card-ink {
+  background: var(--color-ink);
+  color: #fff;
+  border-radius: 26px;
+  box-shadow: var(--shadow-lift);
+}
+.hairline {
+  border-color: var(--color-line);
+}
 
-  /* Buttons: thick ink border, clipped lower-right corner, skew on hover. */
-  .dash-btn {
-    font-weight: 800;
-    font-size: 0.88rem;
-    border: 2.5px solid var(--color-ink);
-    padding: 0.85rem 1.5rem;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    clip-path: polygon(0 0, 100% 0, 100% 68%, 91% 100%, 0 100%);
-    transition: transform 0.12s ease, background-color 0.15s ease, color 0.15s ease;
-    text-decoration: none;
-  }
-  .dash-btn:hover:not(:disabled) { transform: skewX(-3deg) translateX(2px); }
-  .dash-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .dash-btn-primary { background: var(--color-accent); color: #fff; }
-  .dash-btn-primary:hover:not(:disabled) { background: var(--color-ink); }
-  .dash-btn-ink { background: var(--color-ink); color: #fff; }
-  .dash-btn-ink:hover:not(:disabled) { background: var(--color-accent); }
-  .dash-btn-outline { background: transparent; color: var(--color-ink); border-color: var(--color-ink); }
-  .dash-btn-outline:hover:not(:disabled) { background: var(--color-accent-light); }
-  .dash-btn-danger { background: var(--color-danger); color: #fff; border-color: var(--color-danger); }
+/* ============================================================
+   Buttons
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  padding: 0.88rem 1.25rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:active:not(:disabled) { transform: translateY(0); }
+.btn:disabled { opacity: 0.42; cursor: not-allowed; }
+.btn-primary {
+  background: var(--color-violet);
+  color: #fff;
+  box-shadow: 0 10px 24px -14px rgba(13, 172, 92, 0.85);
+}
+.btn-primary:hover:not(:disabled) { background: var(--color-violet-deep); }
+.btn-dark { background: var(--color-ink); color: #fff; }
+.btn-dark:hover:not(:disabled) { background: #2b1d52; }
+.btn-outline { background: transparent; color: var(--color-ink); border-color: var(--color-line-strong); }
+.btn-outline:hover:not(:disabled) { background: #fff; border-color: var(--color-ink); }
+.btn-ghost { background: transparent; color: var(--color-ink); }
+.btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.65); }
+.btn-soft { background: var(--color-accent-light); color: var(--color-violet-deep); }
+.btn-soft:hover:not(:disabled) { background: #e3dbfa; }
+.btn-danger { background: var(--color-danger-soft); color: var(--color-danger); border-color: #f3d3d0; }
+.btn-sm { padding: 0.58rem 0.85rem; font-size: 0.78rem; border-radius: 11px; }
+.btn-lg { padding: 1.05rem 1.45rem; font-size: 1rem; border-radius: 16px; }
+.btn-block { width: 100%; }
 
-  /* Hero/section headline: italic, skewed, tight tracking. Used sparingly. */
-  .dash-headline {
-    font-style: italic;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    transform: skewX(-3deg);
-    transform-origin: left;
-    text-wrap: balance;
-  }
+/* ============================================================
+   Form controls
+   ============================================================ */
+.field {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-strong);
+  border-radius: 16px;
+  padding: 0.82rem 0.95rem;
+  font-size: 0.95rem;
+  color: var(--color-ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field::placeholder { color: #a9a2ae; }
+.field:focus {
+  outline: none;
+  border-color: var(--color-violet);
+  box-shadow: 0 0 0 3px rgba(13, 172, 92, 0.14);
+}
+.field-lg { font-size: 1.15rem; padding: 1rem 1.05rem; border-radius: 16px; }
+.field-error { border-color: var(--color-danger); }
+.field-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+  margin-bottom: 0.45rem;
+}
+.field-hint { font-size: 0.74rem; color: var(--color-ink-soft); }
 
-  /* Small skewed tag, e.g. "Live tracking". */
-  .dash-tag {
-    display: inline-block;
-    background: var(--color-accent-light);
-    color: var(--color-accent);
-    font-weight: 800;
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 0.28rem 0.7rem;
-    transform: skewX(-8deg);
-  }
+/* ============================================================
+   Chips, badges, pills
+   ============================================================ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-line-strong);
+  background: #fff;
+  color: var(--color-ink);
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chip:hover { border-color: var(--color-ink); }
+.chip-active {
+  background: var(--color-ink);
+  color: #fff;
+  border-color: var(--color-ink);
+}
+.chip-soft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  background: var(--color-accent-light);
+  color: var(--color-violet-deep);
+  padding: 0.3rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
 
-  /* Status pills. */
-  .dash-pill {
-    display: inline-block;
-    font-size: 0.66rem;
-    font-weight: 800;
-    padding: 0.22rem 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-  }
-  .dash-pill-done { background: var(--color-ink); color: #fff; }
-  .dash-pill-live { background: var(--color-danger); color: #fff; }
-  .dash-pill-pending { background: var(--color-accent-light); color: var(--color-accent); }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  border-radius: 999px;
+  padding: 0.26rem 0.6rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.badge-dot { width: 5px; height: 5px; border-radius: 999px; background: currentColor; }
+.badge-live { background: var(--color-accent-light); color: var(--color-violet-deep); }
+.badge-success { background: var(--color-success-soft); color: var(--color-success); }
+.badge-warning { background: var(--color-warning-soft); color: var(--color-warning); }
+.badge-danger { background: var(--color-danger-soft); color: var(--color-danger); }
+.badge-neutral { background: #f0ece5; color: var(--color-ink-soft); }
+.badge-ink { background: var(--color-ink); color: #fff; }
 
-  /* Faint diagonal motion stripe, decorative hero flourish. */
-  .dash-stripe {
-    position: absolute;
-    inset: auto -10% -60% -10%;
-    height: 220px;
-    background: repeating-linear-gradient(-18deg, var(--color-accent) 0 26px, transparent 26px 52px);
-    opacity: 0.05;
-    pointer-events: none;
-  }
+/* ============================================================
+   Motion
+   ============================================================ */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(13, 172, 92, 0.28); }
+  70% { box-shadow: 0 0 0 10px rgba(13, 172, 92, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(13, 172, 92, 0); }
+}
+.rise { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade { animation: fade 0.35s ease both; }
+.pulse-dot { animation: pulse-ring 2s infinite; }
 
-  /* OTP / PIN entry box. */
-  .dash-otp-box {
-    border: 2.5px solid var(--color-ink);
-    background: var(--color-surface);
-  }
-  .dash-otp-box.filled { background: var(--color-accent-light); }
-  .dash-otp-box.error { border-color: var(--color-danger); }
+/* ============================================================
+   Misc
+   ============================================================ */
+.hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.skeleton { background: linear-gradient(90deg, #ece6dc 25%, #f5f0e8 50%, #ece6dc 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
-  /* Calm functional input — deliberate counterpoint to the sharp brand chrome. */
-  .dash-input {
-    border: 1.5px solid var(--color-line);
-    border-radius: 10px;
-    padding: 0.75rem 1rem;
-    font-size: 0.95rem;
-    background: var(--color-surface);
-    color: var(--color-ink);
-    width: 100%;
-  }
-  .dash-input:focus { outline: none; border-color: var(--color-ink); }
-  .dash-input::placeholder { color: var(--color-ink-soft); opacity: 0.7; }
+.safe-pb { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
 
-  .dash-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-ink-soft);
+.otp-box {
+  width: 3.15rem;
+  height: 3.6rem;
+  border: 1.5px solid var(--color-line-strong);
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.otp-box.filled { border-color: var(--color-violet); background: var(--color-accent-light); }
+.otp-box.error { border-color: var(--color-danger); background: var(--color-danger-soft); }
+
+.receipt-edge {
+  background-image: radial-gradient(circle at 6px 6px, transparent 5px, #fff 5.5px);
+  background-size: 14px 14px;
+  background-repeat: repeat-x;
+}
+
+/* ============================================================
+   Legacy primitives kept for the auth + settings screens.
+   They now inherit the quieter premium treatment.
+   ============================================================ */
+.dash-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 26px;
+  box-shadow: var(--shadow-soft);
+}
+.dash-card-sm { border-radius: 18px; }
+.dash-signbar {
+  background: var(--color-ink);
+  color: #fff;
+  padding: 0.6rem 0.95rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dash-signbar .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-violet); flex-shrink: 0; }
+
+.dash-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 650;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 0.86rem 1.2rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.dash-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.dash-btn:disabled { opacity: 0.42; cursor: not-allowed; }
+.dash-btn-primary { background: var(--color-violet); color: #fff; }
+.dash-btn-primary:hover:not(:disabled) { background: var(--color-violet-deep); }
+.dash-btn-ink { background: var(--color-ink); color: #fff; }
+.dash-btn-ink:hover:not(:disabled) { background: #2b1d52; }
+.dash-btn-outline { background: transparent; color: var(--color-ink); border-color: var(--color-line-strong); }
+.dash-btn-outline:hover:not(:disabled) { background: #fff; border-color: var(--color-ink); }
+.dash-btn-danger { background: var(--color-danger-soft); color: var(--color-danger); border-color: #f3d3d0; }
+
+.dash-headline { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.035em; text-wrap: balance; }
+.dash-tag {
+  display: inline-block;
+  background: var(--color-accent-light);
+  color: var(--color-violet-deep);
+  font-weight: 700;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+}
+.dash-pill { display: inline-block; font-size: 0.66rem; font-weight: 700; padding: 0.22rem 0.65rem; border-radius: 999px; white-space: nowrap; }
+.dash-pill-done { background: var(--color-ink); color: #fff; }
+.dash-pill-live { background: var(--color-danger-soft); color: var(--color-danger); }
+.dash-pill-pending { background: var(--color-accent-light); color: var(--color-violet-deep); }
+
+.dash-stripe {
+  position: absolute;
+  inset: auto -10% -60% -10%;
+  height: 220px;
+  background: radial-gradient(ellipse at center, rgba(13, 172, 92, 0.1), transparent 65%);
+  pointer-events: none;
+}
+
+/* Floating mobile navigation inspired by the Shuttlers app footer. */
+.bottom-nav {
+  border: 1px solid var(--color-line);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 45px -22px rgba(22, 22, 22, 0.35);
+  backdrop-filter: blur(18px);
+}
+.dash-otp-box { border: 1.5px solid var(--color-line-strong); background: var(--color-surface); border-radius: 14px; }
+.dash-otp-box.filled { background: var(--color-accent-light); border-color: var(--color-violet); }
+.dash-otp-box.error { border-color: var(--color-danger); }
+.dash-input {
+  border: 1px solid var(--color-line-strong);
+  border-radius: 14px;
+  padding: 0.82rem 0.95rem;
+  font-size: 0.95rem;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.dash-input:focus { outline: none; border-color: var(--color-violet); box-shadow: 0 0 0 3px rgba(13, 172, 92, 0.14); }
+.dash-input::placeholder { color: #a9a2ae; opacity: 0.8; }
+.dash-label {
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -1,8 +1,11 @@
 "use client";
+
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AuthShell from "@/components/auth/AuthShell";
+import PhoneField from "@/components/auth/PhoneField";
+import Notice from "@/components/dash/Notice";
 import { forgotPassword, resetPassword } from "@/lib/auth";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
@@ -18,14 +21,17 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phone || pin.length !== 4) { setError("Enter your phone number and 4-digit PIN."); return; }
+  const handleVerify = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!phone || pin.length !== 4) {
+      setError("Enter your phone number and 4-digit PIN.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      const { resetToken } = await forgotPassword(toApiPhone(phone), pin);
-      setResetToken(resetToken);
+      const result = await forgotPassword(toApiPhone(phone), pin);
+      setResetToken(result.resetToken);
       setStep(1);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -34,10 +40,16 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
-    if (newPassword !== confirmPassword) { setError("Passwords do not match."); return; }
+  const handleReset = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -51,77 +63,85 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-cream">
-      <Link href="/" className="mb-8">
-        <Image src="/logo.png" alt="Dash by Equinox" width={100} height={38} priority />
-      </Link>
-
-      <div className="w-full max-w-md dash-card p-8">
-        {step === 0 ? (
-          <>
-            <h1 className="text-2xl font-extrabold text-ink mb-1">Reset your password</h1>
-            <p className="text-ink-soft text-sm mb-7">Enter your phone number and transaction PIN to continue.</p>
-
-            <form onSubmit={handleVerify} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Phone number</label>
-                <div className="flex gap-2">
-                  <span className="dash-input flex items-center gap-1 w-auto text-ink-soft whitespace-nowrap">🇳🇬 +234</span>
-                  <input type="tel" placeholder="0801 234 5678" value={phone}
-                    onChange={(e) => { setPhone(e.target.value); setError(""); }} className="dash-input flex-1" />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Transaction PIN</label>
-                <input type="password" inputMode="numeric" maxLength={4} placeholder="4-digit PIN" value={pin}
-                  onChange={(e) => { setPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setError(""); }}
-                  className="dash-input" />
-              </div>
-
-              {error && (
-                <p className="text-red-600 text-xs bg-danger-light border border-red-100 rounded-lg px-3 py-2">{error}</p>
-              )}
-
-              <button type="submit" disabled={loading} className="dash-btn dash-btn-ink w-full mt-2">
-                {loading ? "Verifying…" : "Continue"}
-              </button>
-            </form>
-          </>
-        ) : (
-          <>
-            <h1 className="text-2xl font-extrabold text-ink mb-1">Set a new password</h1>
-            <p className="text-ink-soft text-sm mb-7">Choose a new password for your account.</p>
-
-            <form onSubmit={handleReset} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">New password</label>
-                <input type="password" placeholder="At least 8 characters" value={newPassword}
-                  onChange={(e) => { setNewPassword(e.target.value); setError(""); }} className="dash-input" />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Confirm password</label>
-                <input type="password" placeholder="Re-enter your new password" value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }} className="dash-input" />
-              </div>
-
-              {error && (
-                <p className="text-red-600 text-xs bg-danger-light border border-red-100 rounded-lg px-3 py-2">{error}</p>
-              )}
-
-              <button type="submit" disabled={loading} className="dash-btn dash-btn-ink w-full mt-2">
-                {loading ? "Saving…" : "Reset password"}
-              </button>
-            </form>
-          </>
-        )}
-
-        <p className="mt-6 text-center text-sm text-ink-soft">
+    <AuthShell
+      eyebrow={step === 0 ? "Account recovery" : "Almost done"}
+      title={step === 0 ? "Reset your password." : "Set a new password."}
+      subtitle={
+        step === 0
+          ? "Enter your phone number and transaction PIN to continue."
+          : "Choose a new password for your Dash account."
+      }
+      footer={
+        <>
           Remembered your password?{" "}
-          <Link href="/signin" className="font-semibold text-accent hover:underline">Sign in</Link>
-        </p>
-      </div>
-    </div>
+          <Link href="/signin" className="font-semibold text-violet hover:underline">
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      {error && <Notice tone="error" className="mb-5">{error}</Notice>}
+
+      {step === 0 ? (
+        <form onSubmit={handleVerify} className="space-y-4">
+          <PhoneField
+            id="forgot-phone"
+            value={phone}
+            onChange={(value) => { setPhone(value); setError(""); }}
+          />
+
+          <div>
+            <label className="field-label" htmlFor="forgot-pin">Transaction PIN</label>
+            <input
+              id="forgot-pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              placeholder="4-digit PIN"
+              value={pin}
+              onChange={(event) => { setPin(event.target.value.replace(/\D/g, "").slice(0, 4)); setError(""); }}
+              className="field num"
+            />
+          </div>
+
+          <button type="submit" disabled={loading} className="btn btn-primary btn-block mt-2">
+            {loading ? "Verifying…" : "Continue"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleReset} className="space-y-4">
+          <div>
+            <label className="field-label" htmlFor="reset-password">New password</label>
+            <input
+              id="reset-password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              value={newPassword}
+              onChange={(event) => { setNewPassword(event.target.value); setError(""); }}
+              className="field"
+            />
+          </div>
+
+          <div>
+            <label className="field-label" htmlFor="reset-confirm">Confirm password</label>
+            <input
+              id="reset-confirm"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Re-enter your new password"
+              value={confirmPassword}
+              onChange={(event) => { setConfirmPassword(event.target.value); setError(""); }}
+              className="field"
+            />
+          </div>
+
+          <button type="submit" disabled={loading} className="btn btn-primary btn-block mt-2">
+            {loading ? "Saving…" : "Reset password"}
+          </button>
+        </form>
+      )}
+    </AuthShell>
   );
 }

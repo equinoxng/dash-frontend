@@ -1,143 +1,161 @@
 "use client";
+
 import Link from "next/link";
-import Image from "next/image";
-import { useState, Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import AuthShell from "@/components/auth/AuthShell";
+import PhoneField from "@/components/auth/PhoneField";
+import Notice from "@/components/dash/Notice";
 import { login } from "@/lib/auth";
 import { saveSession } from "@/lib/session";
 import { toApiPhone } from "@/lib/phone";
 import { ApiError } from "@/lib/api";
+
+function destinationFor(accountType: string) {
+  if (accountType === "RIDER") return "/rider";
+  if (accountType === "MERCHANT") return "/";
+  return "/dashboard";
+}
 
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "true";
   const justReset = searchParams.get("reset") === "true";
+  const requestedNext = searchParams.get("next");
+  const nextPath =
+    requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "";
 
   const [form, setForm] = useState({ phone: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const update = (k: string, v: string) => { setForm((f) => ({ ...f, [k]: v })); setError(""); };
+  const update = (key: string, value: string) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    setError("");
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.phone || !form.password) { setError("Please fill in all fields."); return; }
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.phone || !form.password) {
+      setError("Enter your phone number and password.");
+      return;
+    }
+
     setLoading(true);
+    setError("");
     try {
-      const response = await login(toApiPhone(form.phone), form.password);
+      const phoneNumber = toApiPhone(form.phone);
+      const response = await login(phoneNumber, form.password);
       saveSession({
         token: response.token,
         accountType: response.accountType,
         accountId: response.accountId,
         fullName: response.fullName,
-        phoneNumber: toApiPhone(form.phone),
+        phoneNumber,
         phoneVerified: response.phoneVerified,
       });
-      router.push("/dashboard");
+      router.push(nextPath || destinationFor(response.accountType));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-cream">
-      <Link href="/" className="mb-8">
-        <Image src="/logo.png" alt="Dash by Equinox" width={100} height={38} priority />
-      </Link>
-
-      {(justRegistered || justReset) && (
-        <div className="w-full max-w-md mb-4 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
-          {justRegistered ? "Account created! Sign in to get started." : "Password reset! Sign in with your new password."}
-        </div>
+    <AuthShell
+      eyebrow="Welcome back"
+      title="Sign in to Dash."
+      subtitle="Pick up where you left off and keep your cash moving."
+      footer={
+        <>
+          New to Dash?{" "}
+          <Link href="/signup" className="font-semibold text-violet hover:underline">
+            Create an account
+          </Link>
+          <div className="mt-3 flex justify-center gap-4 text-[10px] font-semibold">
+            <Link href="/signup/rider" className="text-ink-soft hover:text-ink">Join as a rider</Link>
+            <Link href="/signup/merchant" className="text-ink-soft hover:text-ink">Register a business</Link>
+          </div>
+        </>
+      }
+    >
+      {justRegistered && (
+        <Notice tone="success" className="mb-5">
+          Account created. Sign in to continue.
+        </Notice>
+      )}
+      {justReset && (
+        <Notice tone="success" className="mb-5">
+          Password updated. Sign in with your new password.
+        </Notice>
       )}
 
-      <div className="w-full max-w-md dash-card p-8">
-        <h1 className="text-2xl font-extrabold text-ink mb-1">Welcome back</h1>
-        <p className="text-ink-soft text-sm mb-7">Sign in to your Dash account.</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <PhoneField
+          id="signin-phone"
+          value={form.phone}
+          onChange={(value) => update("phone", value)}
+        />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Phone number</label>
-            <div className="flex gap-2">
-              <span className="dash-input flex items-center gap-1 w-auto text-ink-soft whitespace-nowrap">🇳🇬 +234</span>
-              <input type="tel" placeholder="0801 234 5678" value={form.phone}
-                onChange={(e) => update("phone", e.target.value)}
-                className="dash-input flex-1" />
-            </div>
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="field-label !mb-0" htmlFor="signin-password">Password</label>
+            <Link href="/forgot-password" className="text-[10.5px] font-semibold text-violet hover:underline">
+              Forgot password?
+            </Link>
           </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-medium text-slate-700">Password</label>
-              <Link href="/forgot-password" className="text-xs font-semibold text-accent hover:underline">
-                Forgot password?
-              </Link>
-            </div>
-            <div className="relative">
-              <input type={showPassword ? "text" : "password"} placeholder="Enter your password" value={form.password}
-                onChange={(e) => update("password", e.target.value)}
-                className="dash-input pr-11" />
-              <button type="button" onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink">
-                {showPassword
-                  ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                  : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                }
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <p className="text-red-600 text-xs bg-danger-light border border-red-100 rounded-lg px-3 py-2">{error}</p>
-          )}
-
-          <button type="submit" disabled={loading} className="dash-btn dash-btn-ink w-full mt-2">
-            {loading ? (
-              <>
-                <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="white" strokeOpacity="0.3" strokeWidth="3"/>
-                  <path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+          <div className="relative">
+            <input
+              id="signin-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              value={form.password}
+              onChange={(event) => update("password", event.target.value)}
+              className="field pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft transition-colors hover:text-ink"
+            >
+              {showPassword ? (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <path d="M1 1l22 22" />
                 </svg>
-                Signing in…
-              </>
-            ) : "Sign in"}
-          </button>
-        </form>
-
-        <div className="flex items-center gap-3 my-6">
-          <div className="flex-1 h-px bg-line" />
-          <span className="text-xs text-ink-soft">or continue with</span>
-          <div className="flex-1 h-px bg-line" />
+              ) : (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
 
-        <button className="w-full flex items-center justify-center gap-3 border border-line rounded-xl py-3 text-sm font-medium text-slate-700 hover:bg-cream transition-colors">
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          Continue with Google
+        {error && <Notice tone="error">{error}</Notice>}
+
+        <button type="submit" disabled={loading} className="btn btn-primary btn-block mt-2">
+          {loading ? (
+            <>
+              <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
+                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              Signing in…
+            </>
+          ) : (
+            "Sign in"
+          )}
         </button>
-
-        <p className="mt-6 text-center text-sm text-ink-soft">
-          Don't have an account?{" "}
-          <Link href="/signup" className="font-semibold text-accent hover:underline">Sign up</Link>
-        </p>
-      </div>
-
-      <p className="mt-6 text-xs text-ink-soft text-center">
-        Are you a rider?{" "}
-        <Link href="/signup/rider" className="underline hover:text-ink">Apply here</Link>
-        {" · "}
-        <Link href="/signup/merchant" className="underline hover:text-ink">Register a business</Link>
-      </p>
-    </div>
+      </form>
+    </AuthShell>
   );
 }
 

@@ -1,167 +1,364 @@
 "use client";
+
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { registerUser } from "@/lib/auth";
+import AuthShell from "@/components/auth/AuthShell";
+import PhoneField from "@/components/auth/PhoneField";
+import FileUploadField from "@/components/FileUploadField";
+import Notice from "@/components/dash/Notice";
+import {
+  deleteIdentityDocument,
+  login,
+  registerUser,
+  uploadIdentityDocument,
+  type UploadedFile,
+} from "@/lib/auth";
 import { toApiPhone } from "@/lib/phone";
+import { saveSession } from "@/lib/session";
 import { ApiError } from "@/lib/api";
+
+const STEPS = ["Account", "Identity", "PIN"];
+
+const STEP_CONTENT = [
+  {
+    eyebrow: "Step 1 of 3",
+    title: "Create your account.",
+    subtitle: "Start with the details we’ll use to set up and secure your Dash account.",
+  },
+  {
+    eyebrow: "Step 2 of 3",
+    title: "Add your NIN.",
+    subtitle: "We collect your National Identification Number and a photo of your ID for verification.",
+  },
+  {
+    eyebrow: "Step 3 of 3",
+    title: "Set your PIN.",
+    subtitle: "Your 4-digit PIN authorises cash requests and sensitive account actions.",
+  },
+];
+
+function StepProgress({ current }: { current: number }) {
+  return (
+    <div className="mb-8">
+      <div className="flex gap-1.5">
+        {STEPS.map((_, index) => (
+          <div
+            key={STEPS[index]}
+            className={`h-1 flex-1 rounded-full transition-colors ${index <= current ? "bg-violet" : "bg-line"}`}
+          />
+        ))}
+      </div>
+      <div className="mt-2.5 flex justify-between text-[9px] font-bold uppercase tracking-[0.12em]">
+        {STEPS.map((step, index) => (
+          <span key={step} className={index === current ? "text-violet-deep" : "text-ink-soft/60"}>
+            {step}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function UserSignup() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "", password: "", pin: "" });
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    password: "",
+    nin: "",
+    pin: "",
+  });
+  const [identityDocument, setIdentityDocument] = useState<UploadedFile | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const update = (key: keyof typeof form, value: string) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    setError("");
+  };
 
-  const handleCreate = async () => {
-    if (form.pin.length < 4) return;
+  const handleDetails = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
+      setError("Enter your first name, last name and email address.");
+      return;
+    }
+    if (form.phone.replace(/\D/g, "").length < 10) {
+      setError("Enter a valid Nigerian phone number.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    setError("");
+    setStep(1);
+  };
+
+  const handleIdentity = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (form.nin.length !== 11) {
+      setError("NIN must be exactly 11 digits.");
+      return;
+    }
+    if (!identityDocument) {
+      setError("Upload your NIN slip or government ID to continue.");
+      return;
+    }
+    setError("");
+    setStep(2);
+  };
+
+  const handleCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (form.pin.length !== 4) {
+      setError("Enter your 4-digit PIN.");
+      return;
+    }
+
+    const phoneNumber = toApiPhone(form.phone);
     setLoading(true);
     setError("");
+
     try {
       await registerUser({
-        phoneNumber: toApiPhone(form.phone),
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
+        phoneNumber,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
         password: form.password,
         pin: form.pin,
+        nin: form.nin,
       });
-      router.push("/signin?registered=true");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await login(phoneNumber, form.password);
+      saveSession({
+        token: response.token,
+        accountType: response.accountType,
+        accountId: response.accountId,
+        fullName: response.fullName || `${form.firstName} ${form.lastName}`.trim(),
+        phoneNumber,
+        phoneVerified: response.phoneVerified,
+      });
+      router.push("/dashboard");
+    } catch {
+      router.push("/signin?registered=true");
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-cream">
-      <Link href="/" className="mb-8">
-        <Image src="/logo.png" alt="Dash by Equinox" width={100} height={38} priority />
-      </Link>
+  const meta = STEP_CONTENT[step];
 
-      <div className="w-full max-w-md dash-card p-8">
-        {/* Progress bar */}
-        <div className="flex gap-1.5 mb-8">
-          {[1, 2].map((s) => (
-            <div key={s} className={`h-1 flex-1 rounded-full transition-all ${step >= s ? "bg-ink" : "bg-line"}`} />
-          ))}
+  return (
+    <AuthShell
+      eyebrow={meta.eyebrow}
+      title={meta.title}
+      subtitle={meta.subtitle}
+      footer={
+        <>
+          Already have an account?{" "}
+          <Link href="/signin" className="font-semibold text-violet hover:underline">
+            Sign in
+          </Link>
+          <div className="mt-3 flex justify-center gap-4 text-[10px] font-semibold">
+            <Link href="/signup/rider" className="text-ink-soft hover:text-ink">
+              Join as a rider
+            </Link>
+            <Link href="/signup/merchant" className="text-ink-soft hover:text-ink">
+              Register a business
+            </Link>
+          </div>
+        </>
+      }
+    >
+      <StepProgress current={step} />
+
+      {error && (
+        <Notice tone="error" className="mb-5">
+          {error}
+        </Notice>
+      )}
+
+      <form onSubmit={handleDetails} className={`space-y-4 ${step === 0 ? "" : "hidden"}`} aria-hidden={step !== 0}>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="field-label" htmlFor="signup-first-name">First name</label>
+            <input
+              id="signup-first-name"
+              type="text"
+              autoComplete="given-name"
+              placeholder="Ada"
+              value={form.firstName}
+              onChange={(event) => update("firstName", event.target.value)}
+              className="field"
+            />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="signup-last-name">Last name</label>
+            <input
+              id="signup-last-name"
+              type="text"
+              autoComplete="family-name"
+              placeholder="Okafor"
+              value={form.lastName}
+              onChange={(event) => update("lastName", event.target.value)}
+              className="field"
+            />
+          </div>
         </div>
 
-        {step === 1 && (
-          <>
-            <h1 className="text-2xl font-extrabold text-ink mb-1">Create your account</h1>
-            <p className="text-ink-soft text-sm mb-6">Get cash delivered in minutes.</p>
+        <PhoneField
+          id="signup-phone"
+          value={form.phone}
+          onChange={(value) => update("phone", value)}
+        />
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">First name</label>
-                  <input type="text" placeholder="Ada" value={form.firstName}
-                    onChange={(e) => update("firstName", e.target.value)} className="dash-input" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1.5 block">Last name</label>
-                  <input type="text" placeholder="Okafor" value={form.lastName}
-                    onChange={(e) => update("lastName", e.target.value)} className="dash-input" />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Phone number</label>
-                <div className="flex gap-2">
-                  <span className="dash-input flex items-center gap-1 w-auto text-ink-soft whitespace-nowrap">🇳🇬 +234</span>
-                  <input type="tel" placeholder="0801 234 5678" value={form.phone}
-                    onChange={(e) => update("phone", e.target.value)} className="dash-input flex-1" />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Email address</label>
-                <input type="email" placeholder="ada@email.com" value={form.email}
-                  onChange={(e) => update("email", e.target.value)} className="dash-input" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Password</label>
-                <div className="relative">
-                  <input type={showPassword ? "text" : "password"} placeholder="At least 8 characters" value={form.password}
-                    onChange={(e) => update("password", e.target.value)} className="dash-input pr-11" />
-                  <button type="button" onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink">
-                    {showPassword
-                      ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                      : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    }
-                  </button>
-                </div>
-              </div>
-            </div>
+        <div>
+          <label className="field-label" htmlFor="signup-email">Email address</label>
+          <input
+            id="signup-email"
+            type="email"
+            autoComplete="email"
+            placeholder="ada@email.com"
+            value={form.email}
+            onChange={(event) => update("email", event.target.value)}
+            className="field"
+          />
+        </div>
 
-            <button onClick={() => setStep(2)} className="dash-btn dash-btn-ink w-full mt-6">
-              Continue
+        <div>
+          <label className="field-label" htmlFor="signup-password">Password</label>
+          <div className="relative">
+            <input
+              id="signup-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              value={form.password}
+              onChange={(event) => update("password", event.target.value)}
+              className="field pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft transition-colors hover:text-ink"
+            >
+              {showPassword ? (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <path d="M1 1l22 22" />
+                </svg>
+              ) : (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
             </button>
-          </>
+          </div>
+        </div>
+
+        <button type="submit" className="btn btn-primary btn-block mt-2">
+          Continue
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
+      </form>
+
+      <form onSubmit={handleIdentity} className={`space-y-4 ${step === 1 ? "" : "hidden"}`} aria-hidden={step !== 1}>
+        <div>
+          <label className="field-label" htmlFor="signup-nin">National Identification Number</label>
+          <input
+            id="signup-nin"
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="12345678901"
+            value={form.nin}
+            onChange={(event) => update("nin", event.target.value.replace(/\D/g, "").slice(0, 11))}
+            className="field num"
+          />
+          <p className="field-hint mt-1.5">Exactly 11 digits. We’ll never share your NIN.</p>
+        </div>
+
+        <FileUploadField
+          label="NIN slip or government ID"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          upload={(file, onProgress) => uploadIdentityDocument(toApiPhone(form.phone), file, onProgress)}
+          onRemove={() => deleteIdentityDocument(toApiPhone(form.phone))}
+          onUploaded={setIdentityDocument}
+        />
+
+        {identityDocument && (
+          <Notice tone="success">Document saved securely. We’ve attached it to your verification record.</Notice>
         )}
 
-        {step === 2 && (
-          <>
-            <h1 className="text-2xl font-extrabold text-ink mb-1">Set your transaction PIN</h1>
-            <p className="text-ink-soft text-sm mb-6">Used to authorise every cash request.</p>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={() => setStep(0)} className="btn btn-outline flex-1">
+            Back
+          </button>
+          <button type="submit" className="btn btn-primary flex-1">
+            Continue
+          </button>
+        </div>
+      </form>
 
-            <div className="flex gap-3 justify-center mb-8">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className={`dash-otp-box w-14 h-14 flex items-center justify-center text-xl font-bold ${form.pin.length > i ? "filled" : ""}`}>
-                  {form.pin[i] ? "•" : ""}
-                </div>
-              ))}
-            </div>
+      <form onSubmit={handleCreate} className={`space-y-4 ${step === 2 ? "" : "hidden"}`} aria-hidden={step !== 2}>
+        <div>
+          <label className="field-label" htmlFor="signup-pin">Transaction PIN</label>
+          <input
+            id="signup-pin"
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="0000"
+            maxLength={4}
+            value={form.pin}
+            onChange={(event) => update("pin", event.target.value.replace(/\D/g, "").slice(0, 4))}
+            className="field num text-center text-2xl tracking-[0.6em]"
+          />
+          <p className="field-hint mt-1.5">Choose 4 digits you’ll remember. You’ll use this to authorise requests.</p>
+        </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              {["1","2","3","4","5","6","7","8","9","","0","⌫"].map((k) => (
-                <button key={k} onClick={() => {
-                  if (k === "⌫") update("pin", form.pin.slice(0, -1));
-                  else if (k && form.pin.length < 4) update("pin", form.pin + k);
-                }}
-                  className={`h-14 rounded-xl font-semibold text-lg transition-colors text-ink bg-cream ${k === "" ? "invisible" : "hover:bg-accent-light active:scale-95"}`}>
-                  {k}
-                </button>
-              ))}
-            </div>
+        <Notice tone="info">
+          Your phone number is verified at signup. No OTP or extra step is needed.
+        </Notice>
 
-            {error && (
-              <p className="text-red-600 text-xs bg-danger-light border border-red-100 rounded-lg px-3 py-2 mb-4">{error}</p>
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={() => setStep(1)} disabled={loading} className="btn btn-outline flex-1">
+            Back
+          </button>
+          <button type="submit" disabled={loading || form.pin.length !== 4} className="btn btn-primary flex-[1.4]">
+            {loading ? (
+              <>
+                <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
+                  <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+                Creating account…
+              </>
+            ) : (
+              "Create account"
             )}
-
-            <button onClick={handleCreate} disabled={form.pin.length < 4 || loading} className="dash-btn dash-btn-ink w-full">
-              {loading ? (
-                <>
-                  <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="white" strokeOpacity="0.3" strokeWidth="3"/>
-                    <path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-                  </svg>
-                  Creating account…
-                </>
-              ) : "Create account"}
-            </button>
-            <button onClick={() => setStep(1)} className="mt-3 w-full text-sm text-ink-soft hover:text-ink transition-colors">
-              ← Back
-            </button>
-          </>
-        )}
-
-        <p className="mt-6 text-center text-sm text-ink-soft">
-          Already have an account?{" "}
-          <Link href="/signin" className="font-semibold text-accent hover:underline">Sign in</Link>
-        </p>
-      </div>
-
-      <p className="mt-6 text-xs text-ink-soft text-center">
-        Are you a rider?{" "}
-        <Link href="/signup/rider" className="underline hover:text-ink">Apply here</Link>
-        {" · "}
-        <Link href="/signup/merchant" className="underline hover:text-ink">Register a business</Link>
-      </p>
-    </div>
+          </button>
+        </div>
+      </form>
+    </AuthShell>
   );
 }
